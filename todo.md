@@ -13,3 +13,10 @@
 - [x] Add responsive behavior and restrained diff/highlight motion.
 - [x] Run type/build checks and review desktop/mobile screenshots.
 - [ ] Save and deliver the updated website checkpoint.
+
+## Hero Gradient Refinement
+
+- [x] Add the soft grey lower-hero gradient and grounding layer.
+- [x] Keep the hero product canvas readable over the gradient.
+- [x] Preserve responsive behavior and reduced-motion support.
+- [x] Run checks, review desktop/mobile previews, and save the checkpoint.
