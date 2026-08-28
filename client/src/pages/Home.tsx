@@ -338,6 +338,51 @@ function FeatureMockup({ kind }: { kind: "intake" | "ai" | "plan" }) {
   );
 }
 
+function BuildReviewBoard() {
+  const diffLines = [
+    ["01", "import React from 'react'", "import React from 'react'", ""],
+    ["02", "import { View, ActivityIndicator } from 'react-native'", "import { View, ActivityIndicator } from 'react-native'", ""],
+    ["03", "import { useVehicleState } from '@hooks/useVehicleState'", "import { useVehicleState, SyncStatus }", "added"],
+    ["04", "import { Dashboard } from '@components/Dashboard'", "import { Dashboard } from '@components/Dashboard'", ""],
+    ["05", "", "", ""],
+    ["06", "export const HomeScreen = () => {", "export const HomeScreen = () => {", ""],
+    ["07", "  const { vehicleState, isFullySynced } = useVehicleState()", "  const { vehicleState, syncStatus } = useVehicleState()", "changed"],
+    ["08", "", "", ""],
+    ["09", "  if (!isFullySynced) {", "  if (syncStatus === SyncStatus.Syncing) {", "changed"],
+    ["10", "    return <ActivityIndicator size=\"large\" />", "    return <ActivityIndicator size=\"large\" />", ""],
+    ["11", "  }", "  }", ""],
+    ["12", "", "", ""],
+    ["13", "  return (", "  return (", ""],
+    ["14", "    <View>", "    <View>", ""],
+    ["15", "      <Dashboard state={vehicleState} />", "      <Dashboard state={vehicleState} />", ""],
+    ["16", "    </View>", "    </View>", ""],
+    ["17", "  )", "  )", ""],
+    ["18", "}", "}", ""],
+  ];
+
+  return (
+    <div className="build-review-board" aria-label="Code review board with issue sidebar and diff viewer">
+      <aside className="review-sidebar">
+        <div className="review-sidebar-head"><span className="sidebar-chevron">⌄</span><span className="review-status-dot" /> <b>In Review</b><small>3</small></div>
+        {["ENG-2498  Replace isFullySynced with a sync status", "ENG-2380  Show a stale data banner while syncing", "ENG-2039  Pass sync status to the dashboard"].map((issue, index) => <div className={`review-issue ${index === 0 ? "review-active" : ""}`} key={issue}><span className="issue-signal">▥</span><span>{issue}</span></div>)}
+        <div className="review-sidebar-head progress-head"><span className="sidebar-chevron">⌄</span><span className="review-status-dot status-amber" /> <b>In Progress</b><small>4</small></div>
+        {["ENG-2076  Reduce ETA jitter", "ENG-2108  Handle GPS dropouts gracefully", "ENG-2143  Optimize map tile loading on initial app open", "ENG-2187  Prevent duplicate ride requests on poor network"].map((issue) => <div className="review-issue" key={issue}><span className="issue-signal signal-amber">▥</span><span>{issue}</span></div>)}
+        <div className="review-sidebar-head todo-head"><span className="sidebar-chevron">⌄</span><span className="review-status-dot status-gray" /> <b>Todo</b><small>4</small></div>
+        {["ENG-2254  Reduce unnecessary map re-rendering on handoff", "ENG-2291  Clean up deprecated APIs used by the rider", "ENG-2327  Speed up CI pipelines for mobile builds"].map((issue) => <div className="review-issue muted-issue" key={issue}><span className="issue-signal signal-gray">▥</span><span>{issue}</span></div>)}
+      </aside>
+      <div className="diff-window">
+        <div className="diff-window-bar"><span className="file-icon">◧</span><span className="file-path">kinetic-ios/src/screens/Home/HomeScreen.tsx</span><span className="diff-branch">Linear <ChevronDown size={11} /></span></div>
+        <div className="diff-editor-head"><span>←</span><span>Changes</span><span className="diff-count">2 files</span><span className="editor-action">⋯</span></div>
+        <div className="diff-columns"><span>HEAD</span><span>CHANGES</span></div>
+        <div className="diff-code">
+          {diffLines.map(([lineNo, oldLine, newLine, state]) => <div className={`diff-line ${state}`} key={lineNo}><span className="line-number">{lineNo}</span><span className="code-cell old-code">{oldLine}</span><span className="code-cell new-code">{newLine}</span></div>)}
+        </div>
+        <div className="diff-cursor" />
+      </div>
+    </div>
+  );
+}
+
 function PlanningBoard() {
   const dotColumns = [
     { x: 90, ys: [168, 187, 204, 221, 238, 258, 278, 297, 318, 339], tone: "cyan" },
@@ -449,6 +494,14 @@ export default function Home() {
             <div className="planning-description"><p>Plan and navigate from idea to launch. Align your team with product initiatives, strategic roadmaps, and clear, up-to-date PRDs.</p><a className="feature-link" href="#projects">Learn more <ArrowRight size={14} /></a></div>
           </div>
           <div className="shell planning-board-wrap"><PlanningBoard /></div>
+        </section>
+
+        <section className="build-review-section" id="build" aria-labelledby="build-title">
+          <div className="shell build-header">
+            <div className="build-heading"><span className="section-kicker">05 / BUILD</span><h2 id="build-title">Build, review,<br />and ship</h2></div>
+            <div className="build-description"><p>Streamline code reviews with clear diffs, better context, and fewer back-and-forth comments. Keep PRs moving without sacrificing quality.</p><a className="feature-link" href="#projects">Learn more <ArrowRight size={14} /></a></div>
+          </div>
+          <div className="shell build-board-wrap"><BuildReviewBoard /></div>
         </section>
 
         <section className="statement-section" id="customers">

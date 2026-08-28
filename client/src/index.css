@@ -264,3 +264,50 @@ button:focus-visible, a:focus-visible { outline: 1px solid var(--mineral); outli
   .cycle-panel { min-height: 340px; margin-top: 0; padding: 23px 15px 8px; border-radius: 5px; }
   .cycle-title { font-size: 10px; } .cycle-chart { margin-top: 12px; } .chart-axis text { font-size: 8px; }
 }
+
+/*
+ * Build, review, and ship reference section: a quiet code-review workbench with
+ * a translucent issue rail behind a larger diff window. Colors stay near-black;
+ * green/amber/pink marks are reserved for workflow state and changed lines.
+ */
+.build-review-section { position: relative; overflow: hidden; padding: 160px 0 145px; background: #090a0b; border-top: 1px solid var(--line-soft); }
+.build-review-section::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 52% 40% at 47% 68%, rgba(255,255,255,.045), transparent 72%); }
+.build-header { position: relative; z-index: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 90px; align-items: start; }
+.build-heading h2 { margin: 24px 0 0; max-width: 440px; color: #e7e7e6; font-size: clamp(50px, 5vw, 74px); line-height: .97; letter-spacing: -.08em; font-weight: 500; }
+.build-description { max-width: 520px; padding-top: 8px; }
+.build-description p { margin: 0; color: #c4c5c6; font-size: clamp(20px, 2vw, 25px); line-height: 1.23; letter-spacing: -.045em; }
+.build-description .feature-link { margin-top: 37px; color: #7d8184; }
+.build-board-wrap { position: relative; z-index: 2; margin-top: 80px; }
+.build-review-board { position: relative; min-height: 500px; }
+.review-sidebar { position: absolute; top: 25px; left: 0; bottom: 0; width: 46%; padding: 21px 18px 22px 29px; overflow: hidden; background: linear-gradient(96deg, rgba(20,23,25,.76), rgba(14,16,18,.32)); border: 1px solid rgba(255,255,255,.09); border-radius: 5px 0 0 0; color: #858b8f; box-shadow: 0 24px 50px rgba(0,0,0,.2); }
+.review-sidebar::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent 45%, rgba(0,0,0,.46)); }
+.review-sidebar-head { position: relative; z-index: 1; display: flex; align-items: center; gap: 7px; margin-bottom: 9px; color: #c3c7c8; font-size: 11px; }
+.review-sidebar-head b { font-weight: 500; } .review-sidebar-head small { color: #767b80; font-family: 'IBM Plex Mono'; font-size: 8px; }
+.sidebar-chevron { color: #646a6e; font-size: 11px; } .review-status-dot { width: 8px; height: 8px; border: 1px solid #67bd82; border-radius: 50%; background: rgba(103,189,130,.16); } .status-amber { border-color: #b8a249; background: rgba(184,162,73,.15); } .status-gray { border-color: #656c70; background: transparent; }
+.review-issue { position: relative; z-index: 1; display: flex; gap: 8px; align-items: center; padding: 7px 6px 7px 21px; color: #737a7e; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 3px; } .review-issue span:last-child { overflow: hidden; text-overflow: ellipsis; } .review-issue.review-active { background: rgba(255,255,255,.045); color: #d0d2d2; } .issue-signal { flex: none; color: #6a9c8b; font-size: 8px; } .signal-amber { color: #b09c51; } .signal-gray { color: #666c70; } .progress-head { margin-top: 24px; } .todo-head { margin-top: 23px; } .muted-issue { color: #565d61; }
+.diff-window { position: relative; z-index: 3; width: 62%; min-height: 476px; margin-left: 38%; overflow: hidden; background: linear-gradient(118deg, rgba(21,23,26,.94), rgba(11,13,15,.94)); border: 1px solid rgba(255,255,255,.13); border-radius: 7px 0 0 0; box-shadow: 0 35px 85px rgba(0,0,0,.42); }
+.diff-window::before { content: ''; position: absolute; z-index: 0; inset: 0; pointer-events: none; background: linear-gradient(120deg, rgba(255,255,255,.06), transparent 13%); }
+.diff-window-bar { position: relative; z-index: 1; display: flex; align-items: center; gap: 16px; height: 54px; padding: 0 23px; color: #858c90; border-bottom: 1px solid var(--line-soft); font-family: 'IBM Plex Mono'; font-size: 10px; }
+.file-icon { color: #a0a6a9; font-size: 14px; } .file-path { color: #6d7479; letter-spacing: .03em; } .diff-branch { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: #70777b; }
+.diff-editor-head { position: relative; z-index: 1; display: flex; align-items: center; gap: 11px; height: 35px; padding: 0 23px; color: #6b7175; border-bottom: 1px solid var(--line-soft); font-family: 'IBM Plex Mono'; font-size: 8px; } .diff-count { color: #51575b; } .editor-action { margin-left: auto; font-size: 14px; }
+.diff-columns { position: relative; z-index: 1; display: grid; grid-template-columns: 50% 50%; padding-left: 54px; height: 27px; align-items: center; color: #545b5f; border-bottom: 1px solid rgba(255,255,255,.045); font-family: 'IBM Plex Mono'; font-size: 8px; letter-spacing: .08em; } .diff-columns span + span { padding-left: 20px; }
+.diff-code { position: relative; z-index: 1; padding: 9px 0 18px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; line-height: 1.95; color: #797f84; }
+.diff-line { position: relative; display: grid; grid-template-columns: 39px minmax(0, 1fr) minmax(0, 1fr); min-height: 18px; border-left: 2px solid transparent; } .diff-line.changed { border-left-color: rgba(173,77,80,.7); background: linear-gradient(90deg, rgba(109,34,39,.34), rgba(102,34,38,.08) 50%, rgba(48,80,58,.14)); } .diff-line.added { border-left-color: rgba(72,136,89,.7); background: linear-gradient(90deg, rgba(65,126,83,.14), rgba(65,126,83,.07) 50%, rgba(65,126,83,.14)); }
+.line-number { padding-right: 12px; color: #545b60; text-align: right; user-select: none; } .code-cell { overflow: hidden; padding: 0 15px; white-space: pre; text-overflow: clip; } .old-code { border-right: 1px solid rgba(255,255,255,.055); color: #8b7f80; } .new-code { color: #a1aaa7; } .diff-line.changed .old-code { color: #ad7779; } .diff-line.changed .new-code { color: #9fc0a8; } .diff-line.added .old-code { color: #5a6b61; }
+.diff-cursor { position: absolute; z-index: 4; top: 57%; left: 47%; width: 1px; height: 14px; background: #d9dddc; box-shadow: 0 0 7px rgba(255,255,255,.65); animation: cursor-blink 1.3s steps(2) infinite; }
+@keyframes cursor-blink { 0%, 45% { opacity: .85; } 46%, 100% { opacity: 0; } }
+
+@media (max-width: 760px) {
+  .build-review-section { padding: 110px 0 90px; }
+  .build-header { grid-template-columns: 1fr; gap: 30px; }
+  .build-heading h2 { font-size: 54px; }
+  .build-description { padding-top: 0; } .build-description p { font-size: 19px; } .build-description .feature-link { margin-top: 25px; }
+  .build-board-wrap { width: calc(100% - 20px); margin-top: 55px; }
+  .build-review-board { min-height: 570px; }
+  .review-sidebar { top: 0; left: 0; width: 74%; padding: 13px 8px 15px 12px; }
+  .review-sidebar-head { gap: 5px; margin-bottom: 5px; font-size: 8px; } .review-sidebar-head small { font-size: 6px; } .review-status-dot { width: 6px; height: 6px; } .review-issue { gap: 5px; padding: 6px 3px 6px 14px; font-size: 7px; } .issue-signal { font-size: 6px; } .progress-head { margin-top: 15px; } .todo-head { margin-top: 14px; }
+  .diff-window { width: 91%; min-height: 330px; margin-left: 9%; margin-top: 145px; border-radius: 5px 0 0 0; }
+  .diff-window-bar { height: 37px; gap: 8px; padding: 0 10px; font-size: 7px; } .file-icon { font-size: 10px; } .file-path { max-width: 184px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .diff-branch { font-size: 7px; }
+  .diff-editor-head { height: 26px; gap: 6px; padding: 0 10px; font-size: 6px; } .editor-action { font-size: 10px; } .diff-columns { height: 19px; padding-left: 30px; font-size: 6px; } .diff-columns span + span { padding-left: 9px; }
+  .diff-code { padding-top: 6px; font-size: 6px; line-height: 1.9; } .diff-line { grid-template-columns: 25px minmax(0,1fr) minmax(0,1fr); min-height: 12px; } .line-number { padding-right: 6px; } .code-cell { padding: 0 7px; } .diff-cursor { top: 57%; height: 9px; }
+}
