@@ -338,6 +338,39 @@ function FeatureMockup({ kind }: { kind: "intake" | "ai" | "plan" }) {
   );
 }
 
+function PlanningBoard() {
+  const dotColumns = [
+    { x: 90, ys: [168, 187, 204, 221, 238, 258, 278, 297, 318, 339], tone: "cyan" },
+    { x: 220, ys: [191, 211, 230, 249, 267, 286, 305, 323], tone: "cyan" },
+    { x: 350, ys: [147, 163, 181, 201, 220, 240, 259, 279, 299, 318], tone: "cyan" },
+    { x: 480, ys: [174, 191, 212, 232, 252, 272, 294, 313], tone: "cyan" },
+  ];
+
+  return (
+    <div className="planning-board" aria-label="Timeline and cycle time by agent chart">
+      <div className="gantt-panel">
+        <div className="gantt-months"><span />{["9", "16", "23", "6", "13", "20", "27", "4", "11", "18", "25", "1", "8", "15", "22", "M"].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div>
+        <div className="gantt-month-names"><span>MAR</span><span>APR</span><span>MAY</span></div>
+        <div className="gantt-grid-lines"><i /><i /><i /><i /><i /><i /><i /><i /></div>
+        <div className="gantt-row row-ui"><div className="gantt-row-label"><span className="project-symbol symbol-blue">✣</span> UI Refresh <b>↗</b></div><div className="gantt-bar"><span>Core screens</span></div><span className="gantt-milestone milestone-pink">⌄</span><span className="gantt-milestone-label">Polish</span></div>
+        <div className="gantt-row row-spilt"><div className="gantt-row-label"><span className="project-symbol symbol-green">▣</span> Split fares <b>↗</b></div><div className="gantt-bar"><span>Internal</span></div><span className="gantt-milestone milestone-white">◆</span></div>
+        <div className="gantt-row row-telemetry"><div className="gantt-row-label"><span className="project-symbol symbol-purple">◌</span> Telemetry reliability <b>↗</b></div><div className="gantt-bar telemetry-bar"><span /></div><span className="gantt-milestone milestone-white">◆</span><span className="telemetry-day">02</span></div>
+      </div>
+      <div className="cycle-panel">
+        <div className="cycle-title">Cycle time by agent</div>
+        <svg className="cycle-chart" viewBox="0 0 550 420" role="img" aria-label="Cycle time trends from October to December 2025">
+          <g className="chart-guides"><path d="M0 92H550M0 195H550M0 297H550" /><path d="M112 0V360M280 0V360M442 0V360" /></g>
+          <path className="trend-line trend-pink" d="M0 137h76l18-24h86l24 0 18 38h65l20 45h58l24-15h92l20 18h69" />
+          <path className="trend-line trend-amber" d="M0 184h76l18 22h86l24 0 18-29h65l20 20h58l24 47h92l20-8h69" />
+          {dotColumns.map((column, colIndex) => column.ys.map((y, dotIndex) => <circle key={`${colIndex}-${dotIndex}`} className={`chart-dot ${column.tone}`} cx={column.x + ((dotIndex % 3) - 1) * 10} cy={y + (dotIndex % 2) * 4} r={dotIndex % 4 === 0 ? 3 : 2.25} style={{ "--dot-delay": `${(colIndex * 7 + dotIndex) * 55}ms` } as CSSProperties} />))}
+          <g className="chart-axis"><text x="48" y="396">Oct 2025</text><text x="206" y="396">Nov 2025</text><text x="374" y="396">Dec 2025</text></g>
+        </svg>
+      </div>
+      <div className="planning-scan" />
+    </div>
+  );
+}
+
 export default function Home() {
   const heroReveal = useReveal<HTMLDivElement>();
   const figureReveal = useReveal<HTMLDivElement>();
@@ -408,6 +441,14 @@ export default function Home() {
             <div className="feature-copy reveal-on-load" ref={planReveal.ref} data-visible={planReveal.visible}><span className="section-kicker">03 / PLAN</span><h2 id="plan-title">Clarity from first thought to final ship.</h2><p>Projects, documents, and issues stay connected in one focused workspace, so teams always know what matters next.</p><a className="feature-link" href="#projects">Explore planning <ArrowRight size={14} /></a></div>
             <FeatureMockup kind="plan" />
           </div>
+        </section>
+
+        <section className="planning-monitor-section" id="planning" aria-labelledby="planning-title">
+          <div className="shell planning-header">
+            <div className="planning-heading"><span className="section-kicker">04 / PLAN</span><h2 id="planning-title">Planning<br />and monitoring</h2></div>
+            <div className="planning-description"><p>Plan and navigate from idea to launch. Align your team with product initiatives, strategic roadmaps, and clear, up-to-date PRDs.</p><a className="feature-link" href="#projects">Learn more <ArrowRight size={14} /></a></div>
+          </div>
+          <div className="shell planning-board-wrap"><PlanningBoard /></div>
         </section>
 
         <section className="statement-section" id="customers">

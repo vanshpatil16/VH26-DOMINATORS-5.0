@@ -198,3 +198,69 @@ button:focus-visible, a:focus-visible { outline: 1px solid var(--mineral); outli
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .reveal-on-load { opacity: 1; transform: none; }
 }
+
+/*
+ * Planning and monitoring reference section: editorial two-column header, low-contrast
+ * Gantt timeline, deep graphite chart panel, cyan agent data points, and almost-hidden
+ * grid lines. The chart enters with opacity/transform only and stays calm on hover.
+ */
+.planning-monitor-section { position: relative; overflow: hidden; padding: 175px 0 150px; background: #08090a; border-top: 1px solid var(--line-soft); }
+.planning-monitor-section::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .35; background: radial-gradient(ellipse 45% 35% at 76% 59%, rgba(19, 66, 69, .12), transparent 75%); }
+.planning-header { position: relative; z-index: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 90px; align-items: start; }
+.planning-heading { padding-left: 1px; }
+.planning-heading h2 { margin: 24px 0 0; max-width: 440px; color: #e6e6e5; font-size: clamp(50px, 5vw, 74px); line-height: .97; letter-spacing: -.08em; font-weight: 500; }
+.planning-description { max-width: 520px; padding-top: 8px; }
+.planning-description p { margin: 0; color: #c4c5c6; font-size: clamp(20px, 2vw, 25px); line-height: 1.23; letter-spacing: -.045em; }
+.planning-description .feature-link { margin-top: 37px; color: #7d8184; }
+.planning-board-wrap { position: relative; z-index: 2; margin-top: 84px; }
+.planning-board { position: relative; display: grid; grid-template-columns: 1.08fr .92fr; min-height: 480px; }
+.gantt-panel { position: relative; min-width: 0; padding: 35px 29px 24px 0; overflow: hidden; background: linear-gradient(90deg, transparent, rgba(255,255,255,.012)); border-top: 1px solid rgba(255,255,255,.09); }
+.gantt-months { position: relative; z-index: 2; display: grid; grid-template-columns: 90px repeat(16, 1fr); align-items: center; gap: 0; color: #474d51; font-family: 'IBM Plex Mono'; font-size: 8px; }
+.gantt-months span { text-align: center; }
+.gantt-month-names { position: absolute; top: 7px; left: 250px; display: flex; gap: 118px; color: #60666a; font-family: 'IBM Plex Mono'; font-size: 10px; letter-spacing: .05em; }
+.gantt-grid-lines { position: absolute; inset: 28px 29px 0 90px; display: grid; grid-template-columns: repeat(8, 1fr); pointer-events: none; }
+.gantt-grid-lines i { border-left: 1px dashed rgba(255,255,255,.065); }
+.gantt-grid-lines i:last-child { border-right: 1px dashed rgba(255,255,255,.065); }
+.gantt-row { position: relative; z-index: 1; height: 95px; display: flex; align-items: center; padding-left: 90px; }
+.gantt-row-label { position: absolute; top: 47px; left: 90px; transform: translateY(-100%); color: #596065; font-size: 11px; white-space: nowrap; }
+.gantt-row-label b { margin-left: 3px; color: #51585c; font-weight: 400; }
+.project-symbol { margin-right: 4px; font-size: 10px; } .symbol-blue { color: #439fa1; } .symbol-green { color: #6aa57c; } .symbol-purple { color: #8b81ae; }
+.gantt-bar { position: relative; width: 75%; height: 22px; margin-top: 38px; border: 1px solid rgba(255,255,255,.1); background: linear-gradient(90deg, rgba(255,255,255,.025), rgba(255,255,255,.05)); border-radius: 3px; }
+.gantt-bar::after { content: ''; position: absolute; top: -1px; right: -1px; bottom: -1px; width: 24%; border: 1px solid rgba(179,108,106,.38); background: rgba(128,53,53,.16); border-radius: 0 3px 3px 0; }
+.gantt-bar span { position: absolute; top: 30px; left: 38%; color: #4d5559; font-size: 8px; white-space: nowrap; }
+.row-ui { margin-top: 31px; } .row-ui .gantt-bar { margin-left: 30px; } .row-spilt .gantt-bar { width: 83%; margin-left: 108px; } .row-telemetry { margin-top: 65px; } .row-telemetry .gantt-bar { width: 70%; margin-left: 72px; } .telemetry-bar::after { display: none; }
+.gantt-milestone { position: absolute; z-index: 3; font-size: 12px; line-height: 1; } .milestone-pink { top: 57px; left: 45%; color: #c97780; } .milestone-white { top: 56px; left: 69%; color: #7a7f83; font-size: 7px; } .gantt-milestone-label { position: absolute; top: 78px; left: 44%; color: #5a6064; font-size: 8px; }
+.telemetry-day { position: absolute; top: 66px; left: 77%; color: #596065; font-family: 'IBM Plex Mono'; font-size: 8px; }
+.cycle-panel { position: relative; z-index: 3; min-width: 0; margin-top: -32px; padding: 32px 25px 15px; min-height: 445px; background: linear-gradient(120deg, #16181b, #101214 72%); border: 1px solid rgba(255,255,255,.14); border-radius: 6px 0 0 0; box-shadow: 0 30px 80px rgba(0,0,0,.34); }
+.cycle-panel::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(125deg, rgba(255,255,255,.05), transparent 18%); opacity: .7; }
+.cycle-title { position: relative; z-index: 2; color: #babdc0; font-size: 12px; letter-spacing: -.02em; }
+.cycle-chart { position: relative; z-index: 2; display: block; width: 100%; height: auto; margin-top: 26px; overflow: visible; }
+.chart-guides path { fill: none; stroke: rgba(220,225,227,.075); stroke-width: 1; stroke-dasharray: 2 4; }
+.trend-line { fill: none; stroke-width: 1.4; opacity: .5; } .trend-pink { stroke: #8d3c4a; } .trend-amber { stroke: #775d42; }
+.chart-dot { fill: #09a2aa; opacity: .72; animation: dot-breathe 4.4s ease-in-out infinite; animation-delay: var(--dot-delay); } .chart-axis text { fill: #4b5357; font-family: 'IBM Plex Mono'; font-size: 10px; }
+.planning-scan { position: absolute; z-index: 5; top: -25%; left: -20%; width: 17%; height: 150%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent); transform: rotate(10deg); pointer-events: none; animation: planning-scan 12s ease-in-out infinite; }
+@keyframes dot-breathe { 0%, 100% { opacity: .35; transform: scale(.86); } 50% { opacity: .92; transform: scale(1.08); } }
+@keyframes planning-scan { 0%, 65% { left: -20%; opacity: 0; } 72% { opacity: .65; } 92%, 100% { left: 120%; opacity: 0; } }
+
+@media (max-width: 760px) {
+  .planning-monitor-section { padding: 110px 0 85px; }
+  .planning-header { grid-template-columns: 1fr; gap: 30px; }
+  .planning-heading h2 { font-size: 54px; }
+  .planning-description { padding-top: 0; }
+  .planning-description p { font-size: 19px; }
+  .planning-description .feature-link { margin-top: 25px; }
+  .planning-board-wrap { width: calc(100% - 20px); margin-top: 55px; }
+  .planning-board { display: block; min-height: 635px; }
+  .gantt-panel { height: 290px; padding-top: 25px; }
+  .gantt-months { grid-template-columns: 45px repeat(16, 1fr); font-size: 6px; }
+  .gantt-month-names { top: 4px; left: 126px; gap: 53px; font-size: 7px; }
+  .gantt-grid-lines { inset: 22px 0 0 45px; }
+  .gantt-row { height: 58px; padding-left: 45px; }
+  .gantt-row-label { top: 33px; left: 45px; font-size: 7px; }
+  .gantt-bar { height: 16px; margin-top: 24px; }
+  .gantt-bar span { top: 23px; font-size: 6px; }
+  .row-ui { margin-top: 17px; } .row-ui .gantt-bar { margin-left: 18px; width: 82%; } .row-spilt .gantt-bar { margin-left: 50px; width: 88%; } .row-telemetry { margin-top: 21px; } .row-telemetry .gantt-bar { margin-left: 34px; width: 76%; }
+  .milestone-pink { top: 37px; left: 44%; font-size: 9px; } .milestone-white { top: 36px; left: 70%; font-size: 6px; } .gantt-milestone-label { top: 50px; left: 42%; font-size: 6px; } .telemetry-day { top: 39px; left: 77%; font-size: 6px; }
+  .cycle-panel { min-height: 340px; margin-top: 0; padding: 23px 15px 8px; border-radius: 5px; }
+  .cycle-title { font-size: 10px; } .cycle-chart { margin-top: 12px; } .chart-axis text { font-size: 8px; }
+}
