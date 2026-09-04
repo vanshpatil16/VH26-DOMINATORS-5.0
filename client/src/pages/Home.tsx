@@ -4,6 +4,11 @@
  * asymmetric whitespace, and instrument-like motion rather than decorative effects.
  */
 import { useEffect, useRef, useState } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
+import VideoIntro from "../components/VideoIntro";
+import PinnedCardsSection from "../components/PinnedCardsSection";
+import { ParallaxComponent } from "../components/ui/parallax-scrolling";
+import AuthModal from "../components/AuthModal";
 import type { CSSProperties } from "react";
 import {
   ArrowRight,
@@ -100,7 +105,13 @@ function LinearMark({ className = "" }: { className?: string }) {
   );
 }
 
-function Nav() {
+function Nav({
+  onWatchIntro,
+  onOpenAuth,
+}: {
+  onWatchIntro?: () => void;
+  onOpenAuth?: (mode: "signup" | "login") => void;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
@@ -143,12 +154,37 @@ function Nav() {
             </div>
           ))}
           <span className="nav-rule" aria-hidden="true" />
-          <a className="nav-link nav-login" href="#login">
+          {onWatchIntro && (
+            <button
+              onClick={onWatchIntro}
+              className="nav-link flex items-center space-x-1 hover:text-emerald-400 transition-colors text-xs font-mono"
+              type="button"
+            >
+              <Play size={11} fill="currentColor" />
+              <span>Watch Video</span>
+            </button>
+          )}
+          <a
+            className="nav-link flex items-center space-x-1 text-purple-400 hover:text-purple-300 font-mono text-xs border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 rounded-full"
+            href="/dashboard"
+          >
+            <span>Dashboard</span>
+            <ArrowUpRight size={12} />
+          </a>
+          <button
+            className="nav-link nav-login cursor-pointer"
+            type="button"
+            onClick={() => onOpenAuth?.("login")}
+          >
             Log in
-          </a>
-          <a className="nav-signup" href="#signup">
+          </button>
+          <button
+            className="nav-signup cursor-pointer border-0"
+            type="button"
+            onClick={() => onOpenAuth?.("signup")}
+          >
             Sign up
-          </a>
+          </button>
         </nav>
 
         <button
@@ -171,12 +207,25 @@ function Nav() {
             </a>
           ))}
           <span className="mobile-nav-rule" />
-          <a href="#login" onClick={() => setMenuOpen(false)}>
-            Log in <ArrowUpRight size={15} />
-          </a>
-          <a className="mobile-signup" href="#signup" onClick={() => setMenuOpen(false)}>
+          <button
+            onClick={() => {
+              setMenuOpen(false);
+              onOpenAuth?.("login");
+            }}
+            className="text-left font-medium py-3 border-b border-[#222530]"
+          >
+            Log in
+          </button>
+          <button
+            className="mobile-signup"
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              onOpenAuth?.("signup");
+            }}
+          >
             Sign up <ArrowUpRight size={15} />
-          </a>
+          </button>
         </nav>
       )}
     </header>
@@ -417,34 +466,111 @@ function PlanningBoard() {
 }
 
 export default function Home() {
+  const [showVideoIntro, setShowVideoIntro] = useState(true);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
+
+  const handleOpenAuth = (mode: "signup" | "login") => {
+    setAuthMode(mode);
+    setIsAuthOpen(true);
+  };
+
   const heroReveal = useReveal<HTMLDivElement>();
   const figureReveal = useReveal<HTMLDivElement>();
   const intakeReveal = useReveal<HTMLDivElement>();
   const aiReveal = useReveal<HTMLDivElement>();
   const planReveal = useReveal<HTMLDivElement>();
 
+  const heroRef = useRef<HTMLDivElement | null>(null);
+  const { scrollYProgress: heroScroll } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"],
+  });
+
+  const heroY = useTransform(heroScroll, [0, 1], ["0px", "110px"]);
+  const heroOpacity = useTransform(heroScroll, [0, 0.8], [1, 0.25]);
+  const canvasY = useTransform(heroScroll, [0, 1], ["0px", "-45px"]);
+  const canvasRotate = useTransform(heroScroll, [0, 1], ["2deg", "12deg"]);
+  const orbitY = useTransform(heroScroll, [0, 1], ["0px", "180px"]);
+
   return (
     <div className="linear-page" id="top">
-      <Nav />
+      {showVideoIntro && (
+        <VideoIntro onComplete={() => setShowVideoIntro(false)} />
+      )}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        initialMode={authMode}
+      />
+      <Nav
+        onWatchIntro={() => setShowVideoIntro(true)}
+        onOpenAuth={handleOpenAuth}
+      />
 
       <main>
-        <section className="hero-section" aria-labelledby="hero-title">
-          <div className="hero-orbit orbit-one" />
-          <div className="hero-orbit orbit-two" />
-          <div className="hero-content shell">
+        <section ref={heroRef} className="hero-section overflow-hidden" aria-labelledby="hero-title">
+          <motion.div style={{ y: orbitY }} className="hero-orbit orbit-one" />
+          <motion.div style={{ y: orbitY }} className="hero-orbit orbit-two" />
+          <motion.div style={{ y: heroY, opacity: heroOpacity }} className="hero-content shell">
             <div className="eyebrow"><span className="eyebrow-line" />PRODUCT DEVELOPMENT SYSTEM <span className="eyebrow-code">01 — 26</span></div>
             <div className="hero-copy reveal-on-load" ref={heroReveal.ref} data-visible={heroReveal.visible}>
               <h1 id="hero-title">The product development <em>system</em> for teams and agents.</h1>
               <p>Purpose-built for planning and building products. Designed for the AI era.</p>
-              <div className="hero-actions"><a className="primary-button" href="#signup">Get started <ArrowRight size={15} /></a><a className="text-button" href="#product">Explore the system <ArrowUpRight size={15} /></a></div>
+              <div className="hero-actions">
+                <button
+                  type="button"
+                  onClick={() => handleOpenAuth("signup")}
+                  className="primary-button cursor-pointer border-0"
+                >
+                  Get started <ArrowRight size={15} />
+                </button>
+                <a className="text-button" href="#product">Explore the system <ArrowUpRight size={15} /></a>
+              </div>
             </div>
             <div className="hero-meta"><span>SCROLL TO EXPLORE</span><span className="hero-meta-rule" /><span>01 / 08</span></div>
-          </div>
-          <div className="hero-product-wrap"><ProductCanvas /></div>
+          </motion.div>
+          <motion.div style={{ y: canvasY, rotateX: canvasRotate }} className="hero-product-wrap"><ProductCanvas /></motion.div>
         </section>
 
         <section className="logo-strip" aria-label="Teams building the future">
-          <div className="shell logo-strip-inner"><span className="strip-label">POWERING THE TEAMS BUILDING THE FUTURE</span><div className="customer-marks"><span>Vercel</span><span>ramp</span><span>OpenAI</span><span>descript</span><span>coinbase</span><span>Webflow</span></div></div>
+          <div className="shell logo-strip-inner">
+            <span className="strip-label">POWERING THE TEAMS BUILDING THE FUTURE</span>
+            <div className="marquee-wrapper">
+              <div className="marquee-track">
+                {[
+                  { name: "Vercel", className: "brand-vercel" },
+                  { name: "ramp", className: "brand-ramp" },
+                  { name: "OpenAI", className: "brand-openai" },
+                  { name: "descript", className: "brand-descript" },
+                  { name: "coinbase", className: "brand-coinbase" },
+                  { name: "Webflow", className: "brand-webflow" },
+                  { name: "Vercel", className: "brand-vercel" },
+                  { name: "ramp", className: "brand-ramp" },
+                  { name: "OpenAI", className: "brand-openai" },
+                  { name: "descript", className: "brand-descript" },
+                  { name: "coinbase", className: "brand-coinbase" },
+                  { name: "Webflow", className: "brand-webflow" },
+                  { name: "Vercel", className: "brand-vercel" },
+                  { name: "ramp", className: "brand-ramp" },
+                  { name: "OpenAI", className: "brand-openai" },
+                  { name: "descript", className: "brand-descript" },
+                  { name: "coinbase", className: "brand-coinbase" },
+                  { name: "Webflow", className: "brand-webflow" },
+                  { name: "Vercel", className: "brand-vercel" },
+                  { name: "ramp", className: "brand-ramp" },
+                  { name: "OpenAI", className: "brand-openai" },
+                  { name: "descript", className: "brand-descript" },
+                  { name: "coinbase", className: "brand-coinbase" },
+                  { name: "Webflow", className: "brand-webflow" },
+                ].map((brand, idx) => (
+                  <span key={`${brand.name}-${idx}`} className={`customer-mark-item ${brand.className}`}>
+                    {brand.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         </section>
 
         <section className="figures-section section-dark" id="product" aria-labelledby="figures-title">
@@ -466,6 +592,8 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <PinnedCardsSection />
 
         <section className="feature-section intake-section" id="intake" aria-labelledby="intake-title">
           <div className="shell feature-layout">
@@ -503,6 +631,8 @@ export default function Home() {
           </div>
           <div className="shell build-board-wrap"><BuildReviewBoard /></div>
         </section>
+
+        <ParallaxComponent />
 
         <section className="statement-section" id="customers">
           <div className="statement-grid shell"><span className="section-kicker">THE LINEAR WAY</span><h2>Designed for teams that care about the details.</h2><p>When the system gets out of the way, thoughtful teams find the momentum to build products people love.</p><a className="primary-button" href="#signup">See Linear in action <Play size={14} fill="currentColor" /></a></div>
