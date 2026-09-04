@@ -2,7 +2,7 @@ name: LeakGuard CodeGate CI
 
 on:
   push:
-    branches: [main, master, ast/cfg, ast-cfg]
+    branches: ["**"]
   pull_request:
     branches: [main, master, ast/cfg, ast-cfg]
 
