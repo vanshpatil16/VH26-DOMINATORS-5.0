@@ -3,6 +3,7 @@ import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
 import { handleCodegateAnalyze } from "./codegate-api";
+import { handleAdminApi } from "./admin-api";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,6 +15,11 @@ async function startServer() {
   // CodeGate analyzer API (spawns the Python backend)
   app.post("/api/codegate/analyze", (req, res) => {
     void handleCodegateAnalyze(req, res);
+  });
+
+  // LeakGuard admin API (MongoDB-backed)
+  app.use("/api/admin", (req, res) => {
+    void handleAdminApi(req, res, req.url || "/");
   });
 
   // Serve static files from dist/public in production

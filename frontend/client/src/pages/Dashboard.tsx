@@ -344,6 +344,16 @@ export default function Dashboard() {
               <span className="hidden sm:inline">AST Graph</span>
             </Link>
 
+            {/* Admin Panel Button */}
+            <Link
+              to="/admin"
+              className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 hover:border-emerald-500/60 text-emerald-300 hover:text-emerald-100 focus:text-emerald-100 transition-all text-xs font-medium font-poppins group shadow-sm shadow-emerald-950/40"
+              title="LeakGuard admin panel — CI leak monitoring"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <span className="hidden sm:inline">Admin</span>
+            </Link>
+
             {/* Logout Button */}
             <button
               onClick={handleLogout}

@@ -12,6 +12,7 @@ import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Graph from "./pages/Graph";
 import Codegate from "./pages/Codegate";
+import Admin from "./pages/Admin";
 
 function Router() {
   return (
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/graph" component={Graph} />
       <Route path="/codegate" component={Codegate} />
+      <Route path="/admin" component={Admin} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
