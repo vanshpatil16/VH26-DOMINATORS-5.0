@@ -38,7 +38,7 @@ function parseRepoInput(raw: string): [string, string] | null {
 
 export default function Graph() {
   const [owner, setOwner] = useState<string>(
-    () => localStorage.getItem("connected_github_user") || "OmkarKudalkar23"
+    () => localStorage.getItem("connected_github_user") || ""
   );
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [repo, setRepo] = useState<GitHubRepo | null>(null);
@@ -135,6 +135,7 @@ export default function Graph() {
   /* ── repo list for the connected GitHub account ────────────────────────── */
   const loadRepos = useCallback(
     async (login: string) => {
+      if (!login) return;
       setLoadingRepos(true);
       setError(null);
       const list = await fetchUserRepos(login);

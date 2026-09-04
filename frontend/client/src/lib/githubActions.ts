@@ -102,7 +102,12 @@ export function getRateSnapshot(): RateSnapshot | null {
 function headers(): HeadersInit {
   const token = getToken();
   const base: Record<string, string> = { Accept: "application/vnd.github+json" };
-  if (token) base.Authorization = `Bearer ${token}`;
+  if (token) {
+    base.Authorization =
+      token.startsWith("ghp_") || token.startsWith("github_pat_") || token.startsWith("gho_")
+        ? `token ${token}`
+        : `Bearer ${token}`;
+  }
   return base;
 }
 
@@ -156,6 +161,65 @@ export async function fetchWorkflowRuns(
   repo: string,
   opts: { perPage?: number; branch?: string; event?: string } = {}
 ): Promise<GhResult<WorkflowRunInfo[]>> {
+  if (owner.toLowerCase() === "leakguard-demo") {
+    return {
+      ok: true,
+      data: [
+        {
+          id: 1001,
+          name: "LeakGuard CodeGate CI",
+          workflowId: 901,
+          event: "pull_request",
+          headBranch: "main",
+          headSha: "a7d8e9f",
+          status: "completed",
+          conclusion: "failure",
+          createdAt: new Date().toISOString(),
+          htmlUrl: `https://github.com/${owner}/${repo}/actions/runs/1001`,
+          actor: "leakguard-bot",
+          actorAvatar: "https://avatars.githubusercontent.com/u/9919?v=4",
+          runNumber: 42,
+          prNumbers: [14],
+          commitMessage: "fix(core): close file descriptors on exception exit in analyzer.py",
+        },
+        {
+          id: 1002,
+          name: "LeakGuard CodeGate CI",
+          workflowId: 901,
+          event: "push",
+          headBranch: "feat/async-worker",
+          headSha: "b3c4d5e",
+          status: "completed",
+          conclusion: "failure",
+          createdAt: new Date(Date.now() - 86400000).toISOString(),
+          htmlUrl: `https://github.com/${owner}/${repo}/actions/runs/1002`,
+          actor: "security-audit",
+          actorAvatar: "https://avatars.githubusercontent.com/u/9919?v=4",
+          runNumber: 41,
+          prNumbers: [],
+          commitMessage: "feat(scanner): trace control-flow graph for subprocess Popen handles",
+        },
+        {
+          id: 1003,
+          name: "LeakGuard CodeGate CI",
+          workflowId: 901,
+          event: "push",
+          headBranch: "patch/fix-auth",
+          headSha: "9a8b7c6",
+          status: "completed",
+          conclusion: "success",
+          createdAt: new Date(Date.now() - 172800000).toISOString(),
+          htmlUrl: `https://github.com/${owner}/${repo}/actions/runs/1003`,
+          actor: "devops-engineer",
+          actorAvatar: "https://avatars.githubusercontent.com/u/9919?v=4",
+          runNumber: 40,
+          prNumbers: [],
+          commitMessage: "refactor(api): convert socket creation to context manager with-block",
+        },
+      ],
+    };
+  }
+
   const params = new URLSearchParams({ per_page: String(opts.perPage ?? 20) });
   if (opts.branch) params.set("branch", opts.branch);
   if (opts.event) params.set("event", opts.event);
@@ -178,7 +242,7 @@ export async function fetchWorkflowRuns(
       createdAt: r.created_at,
       htmlUrl: r.html_url,
       actor: r.actor?.login ?? r.triggering_actor?.login ?? "unknown",
-      actorAvatar: r.actor?.avatar_url ?? "https://github.com/github.png",
+      actorAvatar: r.actor?.avatar_url ?? "https://avatars.githubusercontent.com/u/9919?v=4",
       runNumber: r.run_number ?? 0,
       prNumbers: Array.isArray(r.pull_requests) ? r.pull_requests.map((p: any) => p.number) : [],
       commitMessage: (r.head_commit?.message ?? "").split("\n")[0],
@@ -192,6 +256,23 @@ export async function fetchCheckRuns(
   repo: string,
   sha: string
 ): Promise<GhResult<CheckRunInfo[]>> {
+  if (owner.toLowerCase() === "leakguard-demo") {
+    return {
+      ok: true,
+      data: [
+        {
+          id: 5001,
+          name: "leakguard-scan",
+          status: "completed",
+          conclusion: sha === "9a8b7c6" ? "success" : "failure",
+          annotationsCount: sha === "9a8b7c6" ? 0 : 3,
+          htmlUrl: `https://github.com/${owner}/${repo}/runs/5001`,
+          summary: "LeakGuard resource leak check findings",
+        },
+      ],
+    };
+  }
+
   const res = await ghJson<{ check_runs?: any[] }>(
     `https://api.github.com/repos/${owner}/${repo}/commits/${sha}/check-runs?per_page=30`
   );
@@ -216,6 +297,41 @@ export async function fetchCheckAnnotations(
   repo: string,
   checkRunId: number
 ): Promise<GhResult<CheckAnnotation[]>> {
+  if (owner.toLowerCase() === "leakguard-demo") {
+    return {
+      ok: true,
+      data: [
+        {
+          path: "codegate/analyzer.py",
+          startLine: 42,
+          endLine: 42,
+          level: "failure",
+          title: "CodeGate: Resource Leak in analyze_source()",
+          message: "File handle 'f' opened on line 40 is not closed on return statement.",
+          rawDetails: null,
+        },
+        {
+          path: "codegate/webapi.py",
+          startLine: 88,
+          endLine: 88,
+          level: "failure",
+          title: "CodeGate: Resource Leak in run_webapi()",
+          message: "Socket object 's' created on line 85 is left unclosed on error branch.",
+          rawDetails: null,
+        },
+        {
+          path: "codegate/cli.py",
+          startLine: 65,
+          endLine: 65,
+          level: "warning",
+          title: "CodeGate: Exception Risk in parse_cli()",
+          message: "File handle 'f' may leak if an unhandled exception is raised.",
+          rawDetails: null,
+        },
+      ],
+    };
+  }
+
   const res = await ghJson<any[]>(
     `https://api.github.com/repos/${owner}/${repo}/check-runs/${checkRunId}/annotations?per_page=100`
   );
@@ -243,6 +359,17 @@ export async function fetchBranches(
   repo: string,
   perPage = 50
 ): Promise<GhResult<BranchInfo[]>> {
+  if (owner.toLowerCase() === "leakguard-demo") {
+    return {
+      ok: true,
+      data: [
+        { name: "main", sha: "a7d8e9f", isProtected: true },
+        { name: "feat/async-worker", sha: "b3c4d5e", isProtected: false },
+        { name: "patch/fix-auth", sha: "9a8b7c6", isProtected: false },
+        { name: "dev/socket-pool", sha: "4e5f6a7", isProtected: false },
+      ],
+    };
+  }
   const res = await ghJson<any[]>(
     `https://api.github.com/repos/${owner}/${repo}/branches?per_page=${perPage}`
   );

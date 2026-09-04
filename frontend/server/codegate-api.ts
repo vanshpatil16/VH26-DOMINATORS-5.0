@@ -46,8 +46,23 @@ export async function runCodegateAnalysis(req: CodegateRequest): Promise<unknown
     );
     child.on("close", (code) => {
       try {
+        const firstBrace = out.indexOf("{");
+        const lastBrace = out.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+          const jsonStr = out.slice(firstBrace, lastBrace + 1);
+          resolve(JSON.parse(jsonStr));
+          return;
+        }
         resolve(JSON.parse(out));
       } catch {
+        if (out.trim().startsWith("{")) {
+          try {
+            resolve(JSON.parse(out.trim()));
+            return;
+          } catch {
+            // fall through
+          }
+        }
         reject(
           new Error(
             `CodeGate exited with code ${code}. stderr: ${err.slice(0, 400) || "(empty)"} stdout: ${out.slice(0, 400)}`,
@@ -55,7 +70,7 @@ export async function runCodegateAnalysis(req: CodegateRequest): Promise<unknown
         );
       }
     });
-    child.stdin.write(req.source);
+    child.stdin.write(Buffer.from(req.source, "utf-8"));
     child.stdin.end();
   });
 }

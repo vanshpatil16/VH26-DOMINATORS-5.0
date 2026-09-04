@@ -42,7 +42,8 @@ export default function AuthModal({
   const [, setLocation] = useLocation();
   const [mode, setMode] = useState<"signup" | "login">(initialMode);
   const [email, setEmail] = useState("");
-  const [usernameInput, setUsernameInput] = useState("OmkarKudalkar23");
+  const [usernameInput, setUsernameInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
   const [isGithubConnected, setIsGithubConnected] = useState(false);
   const [isConnectingGithub, setIsConnectingGithub] = useState(false);
   
@@ -55,16 +56,30 @@ export default function AuthModal({
   useEffect(() => {
     const savedUser = localStorage.getItem("connected_github_user");
     if (savedUser) {
+      setUsernameInput(savedUser);
       loadGitHubData(savedUser, false);
     }
   }, []);
+
+  const handleLoginSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanUser = usernameInput.trim().replace(/^@/, "");
+    if (!cleanUser) {
+      toast.error("Please enter your GitHub Username to log in.");
+      return;
+    }
+    if (passwordInput.trim()) {
+      localStorage.setItem("github_token", passwordInput.trim());
+    }
+    await loadGitHubData(cleanUser, true);
+  };
 
   const loadGitHubData = async (userToFetch: string, autoRedirect = true) => {
     setIsConnectingGithub(true);
     const userInfo = await fetchGitHubUser(userToFetch);
     const userRepos = await fetchUserRepos(userToFetch);
 
-    if (userInfo && userRepos.length > 0) {
+    if (userInfo) {
       setGithubUser(userInfo);
       setRepos(userRepos);
       setIsGithubConnected(true);
@@ -88,7 +103,7 @@ export default function AuthModal({
         toast.success(`GitHub account synced: @${userToFetch}`);
       }
     } else {
-      toast.error(`Could not fetch GitHub data for @${userToFetch}`);
+      toast.error(`Could not fetch GitHub data for @${userToFetch}. Please verify your username and password/token.`);
     }
     setIsConnectingGithub(false);
   };
@@ -186,23 +201,40 @@ export default function AuthModal({
                 </p>
               </div>
 
-              {/* GitHub OAuth Connection Panel */}
+              {/* GitHub Connection Panel */}
               {!isGithubConnected ? (
-                <div className="space-y-3 bg-[#13151c] border border-[#242938] rounded-2xl p-4">
-                  <div className="flex items-center space-x-2">
+                <form onSubmit={handleLoginSubmit} className="space-y-3 bg-[#13151c] border border-[#242938] rounded-2xl p-4">
+                  <div>
+                    <label className="block text-[11px] font-mono text-zinc-400 mb-1.5">
+                      GitHub Username <span className="text-red-400">*</span>
+                    </label>
                     <input
                       type="text"
                       value={usernameInput}
                       onChange={(e) => setUsernameInput(e.target.value)}
-                      placeholder="GitHub Username (e.g. OmkarKudalkar23)"
-                      className="flex-1 bg-[#1a1d26] border border-[#2c3244] focus:border-purple-500 text-white placeholder-zinc-500 px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none"
+                      placeholder="Enter GitHub Username (e.g. octocat)"
+                      className="w-full bg-[#1a1d26] border border-[#2c3244] focus:border-purple-500 text-white placeholder-zinc-500 px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none transition-colors"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-zinc-400 mb-1.5">
+                      Password or Personal Access Token (PAT)
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value)}
+                      placeholder="Enter Password or GitHub PAT Token (optional for public, required for private/rate-limits)"
+                      className="w-full bg-[#1a1d26] border border-[#2c3244] focus:border-purple-500 text-white placeholder-zinc-500 px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none transition-colors"
                     />
                   </div>
 
                   <button
-                    onClick={() => loadGitHubData(usernameInput || "OmkarKudalkar23", true)}
+                    type="submit"
                     disabled={isConnectingGithub}
-                    className="w-full flex items-center justify-center space-x-3 bg-[#24292e] hover:bg-[#2f363d] text-white py-3.5 px-4 rounded-xl font-medium text-sm border border-white/15 shadow-xl transition-all group disabled:opacity-60 cursor-pointer"
+                    className="w-full flex items-center justify-center space-x-3 bg-[#24292e] hover:bg-[#2f363d] text-white py-3.5 px-4 rounded-xl font-medium text-sm border border-white/15 shadow-xl transition-all group disabled:opacity-60 cursor-pointer mt-2"
                   >
                     {isConnectingGithub ? (
                       <RefreshCw className="w-4 h-4 animate-spin text-zinc-300" />
@@ -211,11 +243,11 @@ export default function AuthModal({
                     )}
                     <span>
                       {isConnectingGithub
-                        ? "Fetching GitHub Repositories & API Data..."
-                        : `Authorize GitHub & Open Dashboard (@${usernameInput || "OmkarKudalkar23"})`}
+                        ? "Connecting & Fetching GitHub Repositories..."
+                        : `Authorize GitHub & Open Dashboard ${usernameInput ? `(@${usernameInput})` : ""}`}
                     </span>
                   </button>
-                </div>
+                </form>
               ) : (
                 /* Connected State with Real Repos & Commits & Go To Dashboard Button */
                 <div className="space-y-4">

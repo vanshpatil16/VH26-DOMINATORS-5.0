@@ -199,6 +199,17 @@ def analyze_full(
 
 
 def main(argv: list[str] | None = None) -> int:
+    if hasattr(sys.stdin, "reconfigure"):
+        try:
+            sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     parser = argparse.ArgumentParser(prog="codegate-webapi", description="CodeGate JSON API (one-shot)")
     parser.add_argument("file", help="Python file to analyze, or '-' for stdin")
     parser.add_argument("--fix", action="store_true", help="Include autofix preview")
@@ -211,7 +222,7 @@ def main(argv: list[str] | None = None) -> int:
             source = sys.stdin.read()
             filename = args.filename or "<stdin>"
         else:
-            with open(args.file, encoding="utf-8") as f:
+            with open(args.file, encoding="utf-8", errors="replace") as f:
                 source = f.read()
             filename = args.filename or args.file
         result = analyze_full(source, filename=filename, fix=args.fix, ensemble=args.ensemble)
@@ -220,14 +231,26 @@ def main(argv: list[str] | None = None) -> int:
             "ok": False,
             "error": f"SyntaxError: {e.msg}",
             "line": e.lineno,
-            "filename": args.filename or args.file,
+            "filename": getattr(args, "filename", None) or getattr(args, "file", "unknown"),
         }
     except Exception as e:  # noqa: BLE001
-        result = {"ok": False, "error": f"{type(e).__name__}: {e}", "filename": args.filename or args.file}
+        result = {
+            "ok": False,
+            "error": f"{type(e).__name__}: {e}",
+            "filename": getattr(args, "filename", None) or getattr(args, "file", "unknown"),
+        }
 
-    json.dump(result, sys.stdout, indent=2)
-    sys.stdout.write("\n")
-    return 0 if result.get("ok") else 1
+    try:
+        json_output = json.dumps(result, indent=2, ensure_ascii=False)
+        sys.stdout.write(json_output + "\n")
+    except Exception as e:
+        safe_result = {
+            "ok": False,
+            "error": f"JSON Serialization Error: {e}",
+            "filename": getattr(args, "filename", None) or getattr(args, "file", "unknown"),
+        }
+        sys.stdout.write(json.dumps(safe_result) + "\n")
+    return 0
 
 
 if __name__ == "__main__":

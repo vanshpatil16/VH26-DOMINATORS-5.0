@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   Search,
   Mic,
-  Share2,
+  FileBarChart2,
   Calendar,
   ChevronDown,
   ArrowUpRight,
@@ -43,6 +43,8 @@ import {
   CartesianGrid,
 } from "recharts";
 import { toast } from "sonner";
+import AuthModal from "../components/AuthModal";
+import LeakReportModal from "../components/LeakReportModal";
 import {
   fetchGitHubUser,
   fetchUserRepos,
@@ -161,26 +163,36 @@ function buildHeatmapFromCommits(commits: GitHubCommit[]) {
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState("Overview");
-  const [githubUsername, setGithubUsername] = useState("OmkarKudalkar23");
+  const [githubUsername, setGithubUsername] = useState("");
   const [githubUser, setGithubUser] = useState<GitHubUser | null>(null);
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
-  const [selectedRepo, setSelectedRepo] = useState<string>("Omkars-Portfolio");
+  const [selectedRepo, setSelectedRepo] = useState<string>("");
   const [commits, setCommits] = useState<GitHubCommit[]>([]);
   const [loading, setLoading] = useState(false);
   const [repoDropdownOpen, setRepoDropdownOpen] = useState(false);
   const [searchCommitQuery, setSearchCommitQuery] = useState("");
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem("connected_github_user");
     localStorage.removeItem("github_token");
+    setGithubUsername("");
+    setGithubUser(null);
+    setRepos([]);
+    setCommits([]);
     toast.success("Logged out successfully");
-    navigate("/");
+    setIsAuthModalOpen(true);
   };
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("connected_github_user") || "OmkarKudalkar23";
-    setGithubUsername(savedUser);
-    loadDashboardGitHubData(savedUser);
+    const savedUser = localStorage.getItem("connected_github_user");
+    if (savedUser) {
+      setGithubUsername(savedUser);
+      loadDashboardGitHubData(savedUser);
+    } else {
+      setIsAuthModalOpen(true);
+    }
   }, []);
 
   const loadDashboardGitHubData = async (username: string) => {
@@ -242,93 +254,93 @@ export default function Dashboard() {
       <div className="max-w-[1440px] mx-auto bg-[#0d0e12] border border-[#1c1f28] rounded-[28px] p-5 md:p-7 shadow-2xl space-y-6">
         
         {/* Top Navbar */}
-        <header className="flex flex-col md:flex-row items-center justify-between gap-4 pb-4 border-b border-[#1b1e27]">
+        <header className="flex flex-wrap xl:flex-nowrap items-center justify-between gap-4 pb-4 border-b border-[#1b1e27]">
           {/* Brand Logo & Back to Home */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3 shrink-0">
             <Link
               to="/"
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors shrink-0"
               title="Back to Landing Page"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4" />
             </Link>
-            <h1 className="text-2xl font-bold tracking-tight text-white font-poppins flex items-center space-x-2">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white font-poppins flex items-center space-x-2 shrink-0">
               <span>Insighta</span>
-              <span className="text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2.5 py-0.5 rounded-full font-mono font-normal">
+              <span className="text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2.5 py-0.5 rounded-full font-mono font-normal whitespace-nowrap">
                 GitHub AI
               </span>
             </h1>
           </div>
 
           {/* Navigation Pill Tabs */}
-          <div className="flex items-center bg-[#15171e] border border-[#252936] p-1.5 rounded-2xl">
+          <div className="flex items-center bg-[#15171e] border border-[#252936] p-1.5 rounded-2xl overflow-x-auto shrink-0 max-w-full scrollbar-none">
             <button
               onClick={() => setActiveTab("Overview")}
-              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all ${
+              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 whitespace-nowrap ${
                 activeTab === "Overview"
                   ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
                   : "text-zinc-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              <GridIcon className="w-4 h-4" />
+              <GridIcon className="w-3.5 h-3.5" />
               <span>Overview</span>
             </button>
             <button
               onClick={() => setActiveTab("Reports")}
-              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all ${
+              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 whitespace-nowrap ${
                 activeTab === "Reports"
                   ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
                   : "text-zinc-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-3.5 h-3.5" />
               <span>Reports</span>
             </button>
             <button
               onClick={() => setActiveTab("Optimization")}
-              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all ${
+              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 whitespace-nowrap ${
                 activeTab === "Optimization"
                   ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
                   : "text-zinc-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              <Sliders className="w-4 h-4" />
+              <Sliders className="w-3.5 h-3.5" />
               <span>Optimization</span>
             </button>
             <button
               onClick={() => setActiveTab("Insights")}
-              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all ${
+              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 whitespace-nowrap ${
                 activeTab === "Insights"
                   ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
                   : "text-zinc-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              <Lightbulb className="w-4 h-4" />
+              <Lightbulb className="w-3.5 h-3.5" />
               <span>Insights</span>
             </button>
             <Link
               to="/codegate"
-              className="flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all text-emerald-400 hover:text-white hover:bg-white/5"
+              className="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all text-emerald-400 hover:text-white hover:bg-white/5 shrink-0 whitespace-nowrap"
             >
-              <ShieldCheck className="w-4 h-4" />
+              <ShieldCheck className="w-3.5 h-3.5" />
               <span>CodeGate</span>
             </Link>
           </div>
 
-          {/* Connected GitHub User Info & Search */}
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2.5 bg-[#161922] border border-emerald-500/30 px-3.5 py-1.5 rounded-2xl">
+          {/* Connected GitHub User Info & Action Buttons */}
+          <div className="flex items-center space-x-2.5 flex-wrap sm:flex-nowrap shrink-0">
+            <div className="flex items-center space-x-2.5 bg-[#141722] border border-emerald-500/30 px-3 py-1.5 rounded-2xl shrink-0">
               <img
-                src={githubUser?.avatar_url || "https://github.com/github.png"}
+                src={githubUser?.avatar_url || "https://avatars.githubusercontent.com/u/9919?v=4"}
                 alt={githubUser?.login}
-                className="w-6 h-6 rounded-full border border-emerald-400/50 object-cover"
+                className="w-7 h-7 rounded-full border border-emerald-400/50 object-cover shrink-0"
               />
-              <div className="flex flex-col">
-                <span className="text-xs font-semibold text-white font-mono leading-tight">
-                  @{githubUser?.login || githubUsername}
+              <div className="flex flex-col justify-center text-left leading-tight py-0.5 min-w-0">
+                <span className="text-xs font-semibold text-white font-mono truncate max-w-[140px] whitespace-nowrap block">
+                  @{githubUser?.login || githubUsername || "User"}
                 </span>
-                <span className="text-[10px] text-emerald-400 font-mono flex items-center space-x-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[10px] text-emerald-400 font-mono flex items-center space-x-1 whitespace-nowrap mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
                   <span>{repos.length} Repos Synced</span>
                 </span>
               </div>
@@ -337,31 +349,31 @@ export default function Dashboard() {
             {/* AST Graph Button */}
             <Link
               to="/graph"
-              className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/60 text-purple-300 hover:text-purple-100 focus:text-purple-100 transition-all text-xs font-medium font-poppins group shadow-sm shadow-purple-950/40"
+              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/60 text-purple-300 hover:text-purple-100 transition-all text-xs font-medium font-poppins group shadow-sm shadow-purple-950/40 shrink-0 whitespace-nowrap"
               title="View AST Code Graph"
             >
-              <Network className="w-3.5 h-3.5 text-purple-400 group-hover:rotate-12 transition-transform" />
-              <span className="hidden sm:inline">AST Graph</span>
+              <Network className="w-3.5 h-3.5 text-purple-400 group-hover:rotate-12 transition-transform shrink-0" />
+              <span className="whitespace-nowrap">AST Graph</span>
             </Link>
 
             {/* Admin Panel Button */}
             <Link
               to="/admin"
-              className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 hover:border-emerald-500/60 text-emerald-300 hover:text-emerald-100 focus:text-emerald-100 transition-all text-xs font-medium font-poppins group shadow-sm shadow-emerald-950/40"
+              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 hover:border-emerald-500/60 text-emerald-300 hover:text-emerald-100 transition-all text-xs font-medium font-poppins group shadow-sm shadow-emerald-950/40 shrink-0 whitespace-nowrap"
               title="LeakGuard admin panel — CI leak monitoring"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-              <span className="hidden sm:inline">Admin</span>
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
+              <span className="whitespace-nowrap">Admin</span>
             </Link>
 
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/60 text-red-400 hover:text-red-200 focus:text-red-200 transition-all text-xs font-medium font-poppins group"
+              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/60 text-red-400 hover:text-red-200 transition-all text-xs font-medium font-poppins group shrink-0 whitespace-nowrap"
               title="Logout"
             >
-              <LogOut className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-              <span className="hidden sm:inline">Logout</span>
+              <LogOut className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform shrink-0" />
+              <span className="whitespace-nowrap">Logout</span>
             </button>
           </div>
         </header>
@@ -407,13 +419,16 @@ export default function Dashboard() {
 
             <button
               onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                toast.success("Dashboard report link copied to clipboard!");
+                if (!selectedRepo) {
+                  toast.error("Please select a repository first");
+                  return;
+                }
+                setIsReportOpen(true);
               }}
-              className="flex items-center space-x-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white focus:text-white active:text-white px-5 py-2 rounded-xl font-medium text-xs shadow-lg shadow-purple-600/30 transition-all cursor-pointer"
+              className="flex items-center space-x-2 bg-gradient-to-r from-rose-600 to-purple-600 hover:from-rose-500 hover:to-purple-500 text-white px-5 py-2 rounded-xl font-semibold text-xs shadow-lg shadow-rose-950/40 transition-all cursor-pointer whitespace-nowrap"
             >
-              <span>Share report</span>
-              <Share2 className="w-3.5 h-3.5" />
+              <FileBarChart2 className="w-3.5 h-3.5" />
+              <span>Get Report</span>
             </button>
           </div>
         </div>
@@ -1180,6 +1195,20 @@ export default function Dashboard() {
         </section>
 
       </div>
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
+
+      {/* Leak Report Modal */}
+      <LeakReportModal
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+        owner={githubUser?.login || githubUsername}
+        repo={selectedRepo}
+        branch={repos.find((r) => r.name === selectedRepo)?.default_branch || "main"}
+      />
     </div>
   );
 }

@@ -38,10 +38,146 @@ export interface CommitTimelinePoint {
   sha?: string;
 }
 
+/* ─── Mock Data for Demo Account ("leakguard-demo") ──────────────────────── */
+
+const MOCK_LEAKGUARD_USER: GitHubUser = {
+  login: "leakguard-demo",
+  name: "LeakGuard Security Demo",
+  avatar_url: "https://avatars.githubusercontent.com/u/9919?v=4",
+  public_repos: 4,
+  followers: 142,
+  following: 12,
+  bio: "Official LeakGuard Action & CodeGate Static Analyzer Demo Account",
+  html_url: "https://github.com/leakguard-demo",
+};
+
+const MOCK_LEAKGUARD_REPOS: GitHubRepo[] = [
+  {
+    id: 991,
+    name: "leakguard-action",
+    full_name: "leakguard-demo/leakguard-action",
+    description: "Automated resource leak detection for GitHub Actions & CI workflows",
+    stargazers_count: 142,
+    forks_count: 38,
+    language: "Python",
+    updated_at: new Date().toISOString(),
+    html_url: "https://github.com/leakguard-demo/leakguard-action",
+    default_branch: "main",
+  },
+  {
+    id: 992,
+    name: "secure-flask-api",
+    full_name: "leakguard-demo/secure-flask-api",
+    description: "High-performance REST API backend with automated leak prevention",
+    stargazers_count: 88,
+    forks_count: 14,
+    language: "Python",
+    updated_at: new Date(Date.now() - 86400000).toISOString(),
+    html_url: "https://github.com/leakguard-demo/secure-flask-api",
+    default_branch: "main",
+  },
+  {
+    id: 993,
+    name: "data-pipeline-service",
+    full_name: "leakguard-demo/data-pipeline-service",
+    description: "ETL stream pipeline with AST control-flow verification",
+    stargazers_count: 56,
+    forks_count: 9,
+    language: "Python",
+    updated_at: new Date(Date.now() - 172800000).toISOString(),
+    html_url: "https://github.com/leakguard-demo/data-pipeline-service",
+    default_branch: "main",
+  },
+  {
+    id: 994,
+    name: "cloud-storage-helper",
+    full_name: "leakguard-demo/cloud-storage-helper",
+    description: "S3 & Blob storage SDK wrapper with exception liveness tracking",
+    stargazers_count: 34,
+    forks_count: 4,
+    language: "Python",
+    updated_at: new Date(Date.now() - 259200000).toISOString(),
+    html_url: "https://github.com/leakguard-demo/cloud-storage-helper",
+    default_branch: "main",
+  },
+];
+
+const MOCK_LEAKGUARD_COMMITS: GitHubCommit[] = [
+  {
+    sha: "a7d8e9f",
+    message: "fix(core): close file descriptors on exception exit in analyzer.py",
+    authorName: "LeakGuard Bot",
+    authorAvatar: "https://avatars.githubusercontent.com/u/9919?v=4",
+    date: new Date().toISOString(),
+    htmlUrl: "https://github.com/leakguard-demo/leakguard-action/commit/a7d8e9f",
+  },
+  {
+    sha: "b3c4d5e",
+    message: "feat(scanner): trace control-flow graph for subprocess Popen handles",
+    authorName: "LeakGuard Lead",
+    authorAvatar: "https://avatars.githubusercontent.com/u/9919?v=4",
+    date: new Date(Date.now() - 7200000).toISOString(),
+    htmlUrl: "https://github.com/leakguard-demo/leakguard-action/commit/b3c4d5e",
+  },
+  {
+    sha: "f1e2d3c",
+    message: "ci(leakguard): configure GitHub Actions PR scanner & annotations",
+    authorName: "DevOps Engineer",
+    authorAvatar: "https://avatars.githubusercontent.com/u/9919?v=4",
+    date: new Date(Date.now() - 86400000).toISOString(),
+    htmlUrl: "https://github.com/leakguard-demo/leakguard-action/commit/f1e2d3c",
+  },
+  {
+    sha: "9a8b7c6",
+    message: "refactor(api): convert socket creation to context manager with-block",
+    authorName: "Security Auditor",
+    authorAvatar: "https://avatars.githubusercontent.com/u/9919?v=4",
+    date: new Date(Date.now() - 172800000).toISOString(),
+    htmlUrl: "https://github.com/leakguard-demo/leakguard-action/commit/9a8b7c6",
+  },
+  {
+    sha: "4e5f6a7",
+    message: "test(analyzer): add regression test cases for socket leaks & branch liveness",
+    authorName: "QA Lead",
+    authorAvatar: "https://avatars.githubusercontent.com/u/9919?v=4",
+    date: new Date(Date.now() - 259200000).toISOString(),
+    htmlUrl: "https://github.com/leakguard-demo/leakguard-action/commit/4e5f6a7",
+  },
+];
+
+/**
+ * Optional auth header. A PAT stored under `github_token` (same key the
+ * dashboard clears on logout) lifts the 60 req/h unauthenticated rate limit.
+ */
+function ghHeaders(): HeadersInit {
+  const token =
+    typeof localStorage !== "undefined" ? localStorage.getItem("github_token") : null;
+  if (!token) return { Accept: "application/vnd.github+json" };
+  const authHeader =
+    token.startsWith("ghp_") || token.startsWith("github_pat_") || token.startsWith("gho_")
+      ? `token ${token}`
+      : `Bearer ${token}`;
+  return {
+    Authorization: authHeader,
+    Accept: "application/vnd.github+json",
+  };
+}
+
 export async function fetchGitHubUser(username: string): Promise<GitHubUser | null> {
+  if (!username) return null;
+  if (username.toLowerCase() === "leakguard-demo") {
+    return MOCK_LEAKGUARD_USER;
+  }
   try {
-    const res = await fetch(`https://api.github.com/users/${username}`);
-    if (!res.ok) return null;
+    const res = await fetch(`https://api.github.com/users/${username}`, {
+      headers: ghHeaders(),
+    });
+    if (!res.ok) {
+      if (res.status === 403) {
+        console.warn(`GitHub API Rate limit (403) reached fetching user @${username}`);
+      }
+      return null;
+    }
     return await res.json();
   } catch (err) {
     console.error("Error fetching GitHub user:", err);
@@ -50,11 +186,21 @@ export async function fetchGitHubUser(username: string): Promise<GitHubUser | nu
 }
 
 export async function fetchUserRepos(username: string): Promise<GitHubRepo[]> {
+  if (!username) return [];
+  if (username.toLowerCase() === "leakguard-demo") {
+    return MOCK_LEAKGUARD_REPOS;
+  }
   try {
     const res = await fetch(
-      `https://api.github.com/users/${username}/repos?sort=updated&per_page=30`
+      `https://api.github.com/users/${username}/repos?sort=updated&per_page=30`,
+      { headers: ghHeaders() }
     );
-    if (!res.ok) return [];
+    if (!res.ok) {
+      if (res.status === 403) {
+        console.warn(`GitHub API Rate limit (403) reached fetching repos for @${username}`);
+      }
+      return [];
+    }
     return await res.json();
   } catch (err) {
     console.error("Error fetching GitHub repos:", err);
@@ -64,22 +210,33 @@ export async function fetchUserRepos(username: string): Promise<GitHubRepo[]> {
 
 export async function fetchRepoCommits(
   username: string,
-  repo: string
+  repo: string,
+  branch?: string
 ): Promise<GitHubCommit[]> {
+  if (!username || !repo) return [];
+  if (username.toLowerCase() === "leakguard-demo") {
+    return MOCK_LEAKGUARD_COMMITS;
+  }
   try {
-    const res = await fetch(
-      `https://api.github.com/repos/${username}/${repo}/commits?per_page=50`
-    );
-    if (!res.ok) return [];
+    const url =
+      `https://api.github.com/repos/${username}/${repo}/commits?per_page=50` +
+      (branch ? `&sha=${encodeURIComponent(branch)}` : "");
+    const res = await fetch(url, { headers: ghHeaders() });
+    if (!res.ok) {
+      if (res.status === 403) {
+        console.warn(`GitHub API Rate limit (403) reached fetching commits for ${username}/${repo}`);
+      }
+      return [];
+    }
     const data = await res.json();
     if (!Array.isArray(data)) return [];
 
     return data.map((item: any) => ({
       sha: item.sha.substring(0, 7),
-      message: item.commit.message,
-      authorName: item.commit.author?.name || username,
-      authorAvatar: item.author?.avatar_url || "https://github.com/github.png",
-      date: item.commit.author?.date || new Date().toISOString(),
+      message: item.commit?.message || "Commit",
+      authorName: item.commit?.author?.name || item.author?.login || username,
+      authorAvatar: item.author?.avatar_url || "https://avatars.githubusercontent.com/u/9919?v=4",
+      date: item.commit?.author?.date || item.commit?.committer?.date || new Date().toISOString(),
       htmlUrl: item.html_url,
     }));
   } catch (err) {
@@ -130,20 +287,14 @@ export interface RepoFile {
   sha: string;
 }
 
-/**
- * Optional auth header. A PAT stored under `github_token` (same key the
- * dashboard clears on logout) lifts the 60 req/h unauthenticated rate limit.
- */
-function ghHeaders(): HeadersInit {
-  const token =
-    typeof localStorage !== "undefined" ? localStorage.getItem("github_token") : null;
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 export async function fetchRepoMeta(
   owner: string,
   repo: string
 ): Promise<GitHubRepo | null> {
+  if (!owner || !repo) return null;
+  if (owner.toLowerCase() === "leakguard-demo") {
+    return MOCK_LEAKGUARD_REPOS.find(r => r.name === repo) || MOCK_LEAKGUARD_REPOS[0];
+  }
   try {
     const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
       headers: ghHeaders(),
@@ -167,6 +318,16 @@ export async function fetchRepoTree(
   branch = "main",
   extensions: string[] = [".py"]
 ): Promise<RepoFile[]> {
+  if (!owner || !repo) return [];
+  if (owner.toLowerCase() === "leakguard-demo") {
+    return [
+      { path: "codegate/analyzer.py", size: 4200, sha: "a7d8e9f" },
+      { path: "codegate/webapi.py", size: 3100, sha: "b3c4d5e" },
+      { path: "codegate/cli.py", size: 2800, sha: "f1e2d3c" },
+      { path: "app/routes.py", size: 1900, sha: "9a8b7c6" },
+      { path: "pipeline/stream.py", size: 3500, sha: "4e5f6a7" },
+    ];
+  }
   const load = async (ref: string) =>
     fetch(
       `https://api.github.com/repos/${owner}/${repo}/git/trees/${ref}?recursive=1`,
@@ -202,6 +363,10 @@ export async function fetchFileContent(
   path: string,
   ref?: string
 ): Promise<string | null> {
+  if (!owner || !repo || !path) return null;
+  if (owner.toLowerCase() === "leakguard-demo") {
+    return `def read_file(path):\n    f = open(path)\n    data = f.read()\n    if not data:\n        return None   # LEAK: f never closed\n    f.close()\n    return data\n`;
+  }
   try {
     const url =
       `https://api.github.com/repos/${owner}/${repo}/contents/${path

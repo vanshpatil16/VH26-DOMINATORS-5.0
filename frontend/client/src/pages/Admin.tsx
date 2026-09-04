@@ -31,6 +31,9 @@ import BranchRisk from "../components/admin/charts/BranchRisk";
 import HotFiles from "../components/admin/charts/HotFiles";
 import RepoBranchPanel, { type LiveScanState } from "../components/admin/RepoBranchPanel";
 import FindingsPanel from "../components/admin/FindingsPanel";
+import AdminSidebar from "../components/admin/AdminSidebar";
+
+import AdminAuthModal from "../components/admin/AdminAuthModal";
 
 import {
   fetchGitHubUser,
@@ -113,9 +116,14 @@ const EMPTY_REPO_STATE: RepoState = {
 const ACCOUNT_SCAN_REPOS = 6;
 
 export default function Admin() {
-  const [order, setOrder] = useState<string[]>(() =>
-    loadWatchlist([localStorage.getItem("connected_github_user") || "OmkarKudalkar23"])
-  );
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem("admin_authenticated") === "true";
+  });
+  const [activeTab, setActiveTab] = useState("overview");
+  const [order, setOrder] = useState<string[]>(() => {
+    const saved = localStorage.getItem("connected_github_user");
+    return loadWatchlist(saved ? [saved] : []);
+  });
   const [accounts, setAccounts] = useState<Record<string, AccountState>>({});
   const [repoStates, setRepoStates] = useState<Record<string, RepoState>>({});
 
@@ -497,6 +505,10 @@ export default function Admin() {
 
   /* ── render ────────────────────────────────────────────────────────────── */
 
+  if (!isAuthenticated) {
+    return <AdminAuthModal onAuthenticated={() => setIsAuthenticated(true)} />;
+  }
+
   const emptyHint = (
     <div className="max-w-[15rem] text-center">
       <p className="text-xs text-zinc-400">Nothing recorded yet</p>
@@ -508,32 +520,43 @@ export default function Admin() {
   );
 
   return (
-    <div className="min-h-screen bg-[#08090c] font-poppins text-zinc-100 selection:bg-purple-500/30 selection:text-purple-200">
-      {/* ── top bar ── */}
-      <header className="sticky top-0 z-30 border-b border-[#171a24] bg-[#08090c]/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-4 px-4 py-3 md:px-8">
-          <Link
-            to="/dashboard"
-            className="group flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-white/5 hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-            Dashboard
-          </Link>
+    <div className="flex min-h-screen bg-[#08090c] font-poppins text-zinc-100 selection:bg-purple-500/30 selection:text-purple-200">
+      {/* ── Left Sidebar ── */}
+      <div className="hidden md:block">
+        <AdminSidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          currentUser={activeAccount?.user ?? null}
+          dbConnected={!!db?.ok}
+          rateRemaining={rate?.remaining ?? null}
+          rateLimit={rate?.limit ?? null}
+          tokenPresent={!!getToken()}
+          onOpenTokenModal={() => {
+            const el = document.getElementById("accounts-strip");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }}
+        />
+      </div>
 
-          <span className="h-5 w-px bg-[#1e2230]" />
-
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            <h1 className="text-sm font-semibold tracking-tight text-white">LeakGuard Admin</h1>
-            <span className="hidden text-xs text-zinc-500 sm:inline">
-              CI leak monitoring across watched accounts
+      {/* ── Main Dashboard Content ── */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Header Bar */}
+        <header className="sticky top-0 z-30 border-b border-[#171a24] bg-[#08090c]/90 backdrop-blur-md px-4 py-3 md:px-8 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <h1 className="text-base font-bold text-white tracking-tight">
+              {activeTab === "overview" && "Analytics Overview"}
+              {activeTab === "branches" && "Branches & Commit Logs"}
+              {activeTab === "findings" && "Leak Findings Feed"}
+              {activeTab === "accounts" && "Watched Accounts"}
+            </h1>
+            <span className="text-xs text-zinc-500 hidden sm:inline font-mono">
+              LeakGuard Security Pipeline
             </span>
           </div>
 
-          {/* status cluster — plain text with hairline separators, not a card row */}
-          <div className="ml-auto flex items-center gap-4 text-[11px]">
+          <div className="flex items-center space-x-4 text-xs font-mono">
             <span
-              className="flex items-center gap-1.5"
+              className="flex items-center gap-1.5 text-zinc-400"
               title={db?.error || (db?.ok ? `MongoDB ${db.db} · ${db.ms}ms` : "checking database…")}
             >
               {db?.ok ? (
@@ -541,128 +564,149 @@ export default function Admin() {
               ) : (
                 <Database className={`h-3.5 w-3.5 ${db ? "text-rose-400" : "text-zinc-600"}`} />
               )}
-              <span className={db?.ok ? "text-zinc-400" : db ? "text-rose-300" : "text-zinc-500"}>
-                {db?.ok ? db.db : db ? (db.configured ? "db unreachable" : "db off") : "checking"}
+              <span className={db?.ok ? "text-zinc-400" : "text-zinc-500"}>
+                {db?.ok ? db.db : "DB Offline"}
               </span>
             </span>
 
-            <span className="hidden h-4 w-px bg-[#1e2230] sm:block" />
+            <span className="h-4 w-px bg-[#1e2230]" />
 
-            <span className="hidden items-center gap-1.5 sm:flex" title="GitHub API budget">
-              <Gauge
-                className={`h-3.5 w-3.5 ${ratePct !== null && ratePct < 20 ? "text-rose-400" : "text-zinc-500"}`}
-              />
-              <span className={ratePct !== null && ratePct < 20 ? "text-rose-300" : "text-zinc-400"}>
-                {rate ? `${rate.remaining}/${rate.limit}` : "—"}
-              </span>
+            <span className="flex items-center gap-1.5 text-purple-300" title="GitHub API budget">
+              <Gauge className="h-3.5 w-3.5 text-purple-400" />
+              <span>{rate ? `${rate.remaining}/${rate.limit}` : "60/60"}</span>
             </span>
 
             <button
               onClick={() => selectedLogin && void scanAccount(selectedLogin)}
               disabled={!selectedLogin || !!accountScanning}
-              className="flex items-center gap-2 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white shadow-lg shadow-purple-950/40 transition-colors hover:bg-purple-500 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500 disabled:shadow-none"
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 to-purple-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-lg shadow-rose-950/40 hover:opacity-95 transition-all disabled:opacity-40"
             >
               {accountScanning ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <ScanLine className="h-3.5 w-3.5" />
               )}
-              {accountScanning ? "Scanning…" : "Scan newest repos"}
+              <span>{accountScanning ? "Scanning…" : "Scan Account"}</span>
             </button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="mx-auto max-w-[1600px] space-y-4 px-4 py-6 md:px-8">
-        <AccountsStrip
-          accounts={accountSummaries}
-          selected={selectedLogin}
-          onSelect={login => {
-            setSelectedLogin(login);
-            void loadStored(login);
-            const first = accounts[login]?.repos[0]?.full_name ?? null;
-            setSelectedRepo(first);
-            setFilters(prev => ({ ...prev, repo: "all", branch: "all" }));
-            if (first && !repoStates[first]) void scanRepo(first);
-          }}
-          onAdd={login => void addAccount(login)}
-          onRemove={removeAccount}
-          onRescan={login => void scanAccount(login)}
-          tokenPresent={!!getToken()}
-          tokenOwner={tokenOwner}
-          tokenError={tokenError}
-          tokenChecking={tokenChecking}
-          onSaveToken={token => void saveTokenAndReload(token)}
-          onClearToken={clearToken}
-        />
+        {/* Dashboard Body */}
+        <main className="flex-1 p-4 md:p-8 space-y-6 max-w-[1600px] w-full mx-auto">
+          {rate && rate.remaining === 0 && !getToken() && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs text-amber-200 shadow-xl">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5 shrink-0 text-amber-400" />
+                <div>
+                  <p className="font-semibold text-amber-300">GitHub API Rate Limit Exceeded (HTTP 403)</p>
+                  <p className="text-amber-200/80 mt-0.5">
+                    Unauthenticated GitHub requests are capped at 60/hr per IP. Add a GitHub Personal Access Token (PAT) using the Token button in the left sidebar to unlock 5,000 req/hr.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
-        <OverviewBand
-          errors={accountCounts.error}
-          warnings={accountCounts.warning}
-          repoCount={repoNames.length || accountRepos.length}
-          watchedRepos={accountRepos.length}
-          branchCount={branchNames.length}
-          reposWithCi={accountReposWithCi}
-          reposScanned={accountReposScanned}
-          lastScanAt={lastScanAt}
-          delta={delta}
-          buckets={buckets}
-          events={events}
-          emptyHint={emptyHint}
-        />
+          {/* OVERVIEW TAB */}
+          {(activeTab === "overview" || activeTab === "accounts") && (
+            <div id="accounts-strip">
+              <AccountsStrip
+                accounts={accountSummaries}
+                selected={selectedLogin}
+                onSelect={login => {
+                  setSelectedLogin(login);
+                  void loadStored(login);
+                  const first = accounts[login]?.repos[0]?.full_name ?? null;
+                  setSelectedRepo(first);
+                  setFilters(prev => ({ ...prev, repo: "all", branch: "all" }));
+                  if (first && !repoStates[first]) void scanRepo(first);
+                }}
+                onAdd={login => void addAccount(login)}
+                onRemove={removeAccount}
+                onRescan={login => void scanAccount(login)}
+                tokenPresent={!!getToken()}
+                tokenOwner={tokenOwner}
+                tokenError={tokenError}
+                tokenChecking={tokenChecking}
+                onSaveToken={token => void saveTokenAndReload(token)}
+                onClearToken={clearToken}
+              />
+            </div>
+          )}
 
-        {/* where the leaks are */}
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-          <section className="min-w-0 overflow-hidden rounded-2xl border border-[#1e2230] bg-[#13151b] p-5">
-            <BranchRisk
-              rows={branchRisk}
-              activeBranch={filters.branch}
-              onSelect={branch =>
-                setFilters(prev => ({ ...prev, branch: prev.branch === branch ? "all" : branch }))
-              }
-              empty={emptyHint}
+          {(activeTab === "overview" || activeTab === "branches") && (
+            <>
+              <OverviewBand
+                errors={accountCounts.error}
+                warnings={accountCounts.warning}
+                repoCount={repoNames.length || accountRepos.length}
+                watchedRepos={accountRepos.length}
+                branchCount={branchNames.length}
+                reposWithCi={accountReposWithCi}
+                reposScanned={accountReposScanned}
+                lastScanAt={lastScanAt}
+                delta={delta}
+                buckets={buckets}
+                events={events}
+                emptyHint={emptyHint}
+              />
+
+              <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+                <section className="min-w-0 overflow-hidden rounded-2xl border border-[#1e2230] bg-[#12141c] p-5 shadow-xl">
+                  <BranchRisk
+                    rows={branchRisk}
+                    activeBranch={filters.branch}
+                    onSelect={branch =>
+                      setFilters(prev => ({ ...prev, branch: prev.branch === branch ? "all" : branch }))
+                    }
+                    empty={emptyHint}
+                  />
+                </section>
+
+                <section className="min-w-0 overflow-hidden rounded-2xl border border-[#1e2230] bg-[#12141c] p-5 shadow-xl">
+                  <HotFiles
+                    rows={fileRisk}
+                    query={filters.query}
+                    onSelect={path => setFilters(prev => ({ ...prev, query: path }))}
+                    empty={emptyHint}
+                  />
+                </section>
+              </div>
+
+              <RepoBranchPanel
+                repos={accountRepos}
+                selectedRepo={selectedRepo}
+                onSelectRepo={fullName => {
+                  setSelectedRepo(fullName);
+                  setFilters(prev => ({ ...prev, branch: "all" }));
+                  if (!repoStates[fullName]) void scanRepo(fullName);
+                }}
+                branches={branchRows}
+                runsInspected={repoState.runsInspected}
+                loading={repoState.loading}
+                error={repoState.error}
+                notes={repoState.notes}
+                activeBranch={filters.branch}
+                onFocusBranch={branch => setFilters(prev => ({ ...prev, branch }))}
+                onRescanRepo={() => selectedRepo && void scanRepo(selectedRepo)}
+                onLiveScan={branch => void runLiveScan(branch)}
+                liveScan={liveScan}
+              />
+            </>
+          )}
+
+          {(activeTab === "overview" || activeTab === "findings") && (
+            <FindingsPanel
+              findings={accountFindings}
+              filters={filters}
+              onFiltersChange={setFilters}
+              branches={branchNames}
+              repos={repoNames}
+              loading={busy}
             />
-          </section>
-
-          <section className="min-w-0 overflow-hidden rounded-2xl border border-[#1e2230] bg-[#13151b] p-5">
-            <HotFiles
-              rows={fileRisk}
-              query={filters.query}
-              onSelect={path => setFilters(prev => ({ ...prev, query: path }))}
-              empty={emptyHint}
-            />
-          </section>
-        </div>
-
-        <RepoBranchPanel
-          repos={accountRepos}
-          selectedRepo={selectedRepo}
-          onSelectRepo={fullName => {
-            setSelectedRepo(fullName);
-            setFilters(prev => ({ ...prev, branch: "all" }));
-            if (!repoStates[fullName]) void scanRepo(fullName);
-          }}
-          branches={branchRows}
-          runsInspected={repoState.runsInspected}
-          loading={repoState.loading}
-          error={repoState.error}
-          notes={repoState.notes}
-          activeBranch={filters.branch}
-          onFocusBranch={branch => setFilters(prev => ({ ...prev, branch }))}
-          onRescanRepo={() => selectedRepo && void scanRepo(selectedRepo)}
-          onLiveScan={branch => void runLiveScan(branch)}
-          liveScan={liveScan}
-        />
-
-        <FindingsPanel
-          findings={accountFindings}
-          filters={filters}
-          onFiltersChange={setFilters}
-          branches={branchNames}
-          repos={repoNames}
-          loading={busy}
-        />
-      </main>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

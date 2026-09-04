@@ -100,7 +100,7 @@ export default function AccountsStrip({
                 title={acc.error ?? `${acc.repoCount} repositories`}
               >
                 <img
-                  src={acc.user?.avatar_url || "https://github.com/github.png"}
+                  src={acc.user?.avatar_url || "https://avatars.githubusercontent.com/u/9919?v=4"}
                   alt=""
                   className="h-6 w-6 rounded-full object-cover ring-1 ring-black/40"
                 />
