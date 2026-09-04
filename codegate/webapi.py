@@ -240,7 +240,8 @@ def main(argv: list[str] | None = None) -> int:
             with open(args.file, encoding="utf-8", errors="replace") as f:
                 source = f.read()
             filename = args.filename or args.file
-        result = analyze_full(source, filename=filename, fix=args.fix, ensemble=args.ensemble)
+        result = analyze_full(source, filename=filename, fix=args.fix,
+                              ensemble=args.ensemble)
     except SyntaxError as e:
         result = {
             "ok": False,

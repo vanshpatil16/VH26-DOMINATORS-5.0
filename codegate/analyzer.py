@@ -777,7 +777,46 @@ def analyze_source_with_cfg(source: str, filename: str = "<string>", config: Cod
         exc_leaks = analyze_exception_safety(source, leaks, config)
         leaks.extend(exc_leaks)
 
+    # Merge overlapping findings on the same variable (§7/§19): when a variable
+    # has BOTH a definite path leak (e.g. reassignment) AND an exception finding,
+    # fold the exception reason into the path finding instead of reporting two
+    # separate records (reduces noise; the second finding is a secondary aspect
+    # of the same resource lifetime).
+    leaks = _merge_duplicate_findings(leaks)
+
     return leaks, cfg
+
+
+def _merge_duplicate_findings(leaks: list[Leak]) -> list[Leak]:
+    """Merge exception findings into same-(func,var) path findings.
+
+    Rule: if a function has a path-leak for variable V (kind path/path+exception)
+    AND a separate exception-only finding for the same V, the exception finding
+    is folded into the path finding's reasons and dropped. This prevents
+    double-reporting overwrite+exception on the same resource variable.
+    """
+    path_by_key: dict[tuple[str, str], Leak] = {}
+    for lk in leaks:
+        if lk.kind in ("path", "path+exception"):
+            key = (lk.func, lk.var)
+            # prefer the primary (lower acquire_line / earlier) instance
+            if key not in path_by_key or lk.acquire_line < path_by_key[key].acquire_line:
+                path_by_key[key] = lk
+
+    merged: list[Leak] = []
+    for lk in leaks:
+        if lk.kind == "exception":
+            key = (lk.func, lk.var)
+            primary = path_by_key.get(key)
+            if primary is not None:
+                # fold: append the exception reason to the primary finding
+                if "exception escape" not in primary.leak_reasons:
+                    primary.leak_reasons.append("exception escape")
+                if not primary.exception_note and lk.exception_note:
+                    primary.exception_note = lk.exception_note
+                continue  # drop the standalone exception finding
+        merged.append(lk)
+    return merged
 
 
 def analyze_source(source: str, filename: str = "<string>", config: CodeGateConfig | None = None) -> list[Leak]:

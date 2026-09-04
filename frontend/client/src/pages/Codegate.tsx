@@ -166,11 +166,10 @@ export default function Codegate() {
               <span>{result.summary.trajectorySteps} steps ({result.summary.analysisMs.toFixed(0)}ms)</span>
             </div>
             <span className="text-zinc-700">•</span>
-            <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg border font-semibold ${
-              result.summary.leakCount > 0
+            <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg border font-semibold ${result.summary.leakCount > 0
                 ? "bg-red-500/10 border-red-500/40 text-red-400 animate-pulse"
                 : "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
-            }`}>
+              }`}>
               {result.summary.leakCount > 0 ? (
                 <>
                   <TriangleAlert className="w-3.5 h-3.5 text-red-400" />
@@ -227,11 +226,10 @@ export default function Codegate() {
                 <button
                   key={d.name}
                   onClick={() => pickDemo(i)}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 shadow-sm ${
-                    activeFile.name === d.filename && activeFile.code === d.code
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 shadow-sm ${activeFile.name === d.filename && activeFile.code === d.code
                       ? "bg-purple-600/25 border-purple-500/60 text-purple-200 font-semibold shadow-purple-950/40"
                       : "bg-[#11131a] border-[#1f2330] text-zinc-400 hover:border-purple-500/30 hover:text-zinc-200 hover:bg-[#161824]"
-                  }`}
+                    }`}
                 >
                   {d.name}
                 </button>
@@ -245,11 +243,10 @@ export default function Codegate() {
               {files.map((f, i) => (
                 <span
                   key={`${f.name}-${i}`}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-mono transition-all duration-200 cursor-pointer shrink-0 shadow-sm ${
-                    i === activeIdx
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-mono transition-all duration-200 cursor-pointer shrink-0 shadow-sm ${i === activeIdx
                       ? "bg-purple-950/40 border-purple-500/60 text-purple-200 font-medium"
                       : "bg-[#0d0e12] border-[#1c1f28] text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 hover:bg-white/5"
-                  }`}
+                    }`}
                   onClick={() => { setActiveIdx(i); setResult(null); }}
                 >
                   <FileCode2 className={`w-3.5 h-3.5 ${i === activeIdx ? "text-purple-400" : "text-zinc-500"}`} />
@@ -270,9 +267,8 @@ export default function Codegate() {
 
           {/* Code Editor Window */}
           <div
-            className={`rounded-2xl border bg-[#0a0b0e] overflow-hidden transition-all duration-200 shadow-xl shadow-black/80 ${
-              dragOver ? "border-purple-500/60 bg-purple-500/5 ring-2 ring-purple-500/20" : "border-[#1c1f28]"
-            }`}
+            className={`rounded-2xl border bg-[#0a0b0e] overflow-hidden transition-all duration-200 shadow-xl shadow-black/80 ${dragOver ? "border-purple-500/60 bg-purple-500/5 ring-2 ring-purple-500/20" : "border-[#1c1f28]"
+              }`}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={(e) => {
