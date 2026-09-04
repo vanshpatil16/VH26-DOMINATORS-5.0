@@ -179,7 +179,7 @@ export default function AuthModal({
               {/* Modal Title */}
               <div>
                 <h3 className="text-2xl font-bold tracking-tight text-white mb-1 font-poppins">
-                  {mode === "signup" ? "Connect GitHub Account" : "Sign In to Linear"}
+                  {mode === "signup" ? "Connect GitHub Account" : "Sign In to CodeGate"}
                 </h3>
                 <p className="text-xs text-zinc-400">
                   Sync your GitHub repositories, commits, and PRs automatically into your dashboard.

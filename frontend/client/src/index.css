@@ -46,7 +46,7 @@ button:focus-visible, a:focus-visible { outline: 1px solid var(--mineral); outli
 .site-nav { position: fixed; z-index: 40; inset: 0 0 auto; height: 74px; background: rgba(8,9,10,.88); border-bottom: 1px solid var(--line-soft); backdrop-filter: blur(18px); }
 .nav-inner { width: min(100% - 96px, 1452px); height: 100%; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
 .wordmark { display: inline-flex; align-items: center; gap: 11px; font-size: 21px; font-weight: 600; letter-spacing: -0.045em; }
-.linear-mark { width: 28px; height: 28px; object-fit: contain; flex: none; filter: brightness(1.2); }
+.linear-mark { width: 28px; height: 28px; object-fit: cover; flex: none; border-radius: 6px; }
 .desktop-nav { display: flex; align-items: center; gap: 27px; height: 100%; }
 .nav-item { position: relative; height: 100%; display: flex; align-items: center; }
 .nav-link { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; color: #a2a2a4; transition: color .18s ease, transform .18s var(--ease-out); }

@@ -27,48 +27,48 @@ import {
   X,
 } from "lucide-react";
 
-const logoMark = "/manus-storage/linear-stripe-mark_5d589de8.png";
+const logoMark = "/codegate-icon.jpg";
 const heroImage = "/manus-storage/linear-hero-system_283309c0.jpg";
 const purposeImage = "/manus-storage/linear-figure-purpose_fce42799.jpg";
 const agentsImage = "/manus-storage/linear-figure-agents_577b8fb2.jpg";
 const speedImage = "/manus-storage/linear-figure-speed_62925243.jpg";
 
 const navLinks = [
-  { label: "Product", href: "#product", dropdown: ["Intake", "Plan", "AI", "Build"] },
-  { label: "Resources", href: "#resources", dropdown: ["Customers", "Now", "Contact"] },
-  { label: "Customers", href: "#customers" },
+  { label: "Features", href: "#product", dropdown: ["Detect", "Analyze", "Fix", "CI/CD"] },
+  { label: "Resources", href: "#resources", dropdown: ["Docs", "Examples", "Contact"] },
+  { label: "Examples", href: "#customers" },
   { label: "Pricing", href: "#pricing" },
-  { label: "Now", href: "#now" },
+  { label: "GitHub", href: "#now" },
   { label: "Contact", href: "#contact" },
 ];
 
 const figures = [
   {
     index: "FIG 0.1",
-    title: "Purpose-built",
-    copy: "Linear is shaped by the practices and principles of world-class product teams.",
+    title: "Control-flow aware",
+    copy: "CodeGate traces every branch of your code — not just the happy path — to find resources left open on any reachable exit.",
     image: purposeImage,
   },
   {
     index: "FIG 0.2",
-    title: "Powered by agents",
-    copy: "Designed for workflows shared by humans and agents, from drafting PRDs to pushing PRs.",
+    title: "Alias & ownership tracking",
+    copy: "Understands aliased variables (g = f), reassignments, and ownership transfers like return f, so it never fires a false alarm.",
     image: agentsImage,
   },
   {
     index: "FIG 0.3",
-    title: "Designed for speed",
-    copy: "Reduces noise and restores momentum to help teams ship with high velocity and focus.",
+    title: "One-command autofix",
+    copy: "Rewrites leaky open/close patterns to idiomatic with-statements in place, preserving your comments and formatting exactly.",
     image: speedImage,
   },
 ];
 
 const intakeIssues = [
-  ["ENG-2085", "Reduce UI flicker during autonomy...", "Backlog"],
-  ["ENG-2094", "Add buffering for autonomy event streams", "Backlog"],
-  ["ENG-2092", "Reduce startup delay caused by vehicle sync", "Backlog"],
-  ["ENG-2200", "Fix delayed route updates during rerouting", "Backlog"],
-  ["ENG-0926", "Remove UI inconsistencies", "Todo"],
+  ["LEAK-001", "file handle not closed on early return path", "Critical"],
+  ["LEAK-002", "socket.socket() missing close() in error branch", "Critical"],
+  ["LEAK-003", "subprocess.Popen not closed after reassignment", "High"],
+  ["LEAK-004", "tempfile.NamedTemporaryFile leaks on exception", "High"],
+  ["SAFE-012", "with open(path) as f — ownership transferred", "Clean"],
 ];
 
 function useReveal<T extends HTMLElement>() {
@@ -118,9 +118,9 @@ function Nav({
   return (
     <header className="site-nav" data-menu-open={menuOpen}>
       <div className="nav-inner">
-        <a className="wordmark" href="#top" aria-label="Linear home">
+        <a className="wordmark" href="#top" aria-label="CodeGate home">
           <LinearMark />
-          <span>Linear</span>
+          <span>CodeGate</span>
         </a>
 
         <nav className="desktop-nav" aria-label="Main navigation">
@@ -281,11 +281,11 @@ function FigureGraphic({ type }: { type: "purpose" | "agents" | "speed" }) {
 
 function ProductCanvas() {
   return (
-    <div className="product-canvas" aria-label="Linear product interface preview">
+    <div className="product-canvas" aria-label="CodeGate resource-leak analysis interface preview">
       <div className="canvas-glow" />
       <div className="canvas-window">
         <aside className="canvas-sidebar">
-          <div className="canvas-team"><LinearMark /><span>Linear</span><ChevronDown size={11} /></div>
+          <div className="canvas-team"><LinearMark /><span>CodeGate</span><ChevronDown size={11} /></div>
           <div className="canvas-search"><Search size={12} /><span>Search</span><kbd>⌘ K</kbd></div>
           <div className="canvas-nav-group">
             <span className="canvas-nav-label">Workspace</span>
@@ -307,10 +307,10 @@ function ProductCanvas() {
           <div className="canvas-tabs"><span className="active">All issues</span><span>Assigned to me</span><span>Recently updated</span></div>
           <div className="issue-list">
             {[
-              ["ENG-2498", "Replace isFullySynced with a sync status", "Performance", "Oct 9"],
-              ["ENG-2380", "Show a stale data banner while syncing", "Reliability", "Oct 9"],
-              ["ENG-2039", "Pass sync status to the dashboard", "Bug", "Oct 8"],
-              ["ENG-1882", "Optimize load times", "Performance", "Oct 7"],
+              ["LEAK-001", "file handle not closed on early return", "Critical", "Oct 9"],
+              ["LEAK-002", "socket not closed in error branch", "Critical", "Oct 9"],
+              ["LEAK-003", "Popen leaks after reassignment", "High", "Oct 8"],
+              ["SAFE-012", "with-block — ownership transferred", "Clean", "Oct 7"],
             ].map(([id, title, tag, date], index) => (
               <div className={`issue-row ${index === 0 ? "selected" : ""}`} key={id}>
                 <span className="issue-checkbox" />
@@ -325,15 +325,15 @@ function ProductCanvas() {
         </div>
         <aside className="canvas-detail">
           <div className="detail-top"><span>ENG-2498</span><MoreHorizontal size={14} /></div>
-          <h3>Replace isFullySynced with a sync status</h3>
-          <p>Render UI before vehicle state sync when minimum required state is present.</p>
+          <h3>file handle not closed on early return</h3>
+          <p>f = open(path) is acquired but close() is never reached on the early-return branch.</p>
           <div className="detail-divider" />
           <div className="detail-meta"><span>Status</span><strong><i className="status-pulse" /> In progress</strong></div>
           <div className="detail-meta"><span>Priority</span><strong>Medium</strong></div>
           <div className="detail-meta"><span>Assignee</span><strong><span className="avatar avatar-orange">K</span> Karri</strong></div>
           <div className="detail-divider" />
-          <div className="detail-activity"><span className="activity-dot" /><span>Linear connected by Jori</span><small>2m</small></div>
-          <div className="detail-activity"><span className="activity-dot" /><span>Draft PR awaiting review</span><small>2m</small></div>
+          <div className="detail-activity"><span className="activity-dot" /><span>CodeGate detected leak at line 12</span><small>2m</small></div>
+          <div className="detail-activity"><span className="activity-dot" /><span>Autofix: rewrite to with-statement ready</span><small>2m</small></div>
         </aside>
       </div>
       <div className="canvas-image-layer"><img src={heroImage} alt="" aria-hidden="true" /></div>
@@ -369,12 +369,12 @@ function FeatureMockup({ kind }: { kind: "intake" | "ai" | "plan" }) {
   }
   if (kind === "ai") {
     return (
-      <div className="feature-mockup ai-mockup" aria-label="Linear agent preview">
-        <div className="mini-window-head"><span className="window-dots"><i /><i /><i /></span><span><Sparkles size={12} /> Linear Agent</span><span className="agent-ready">Ready</span></div>
+      <div className="feature-mockup ai-mockup" aria-label="CodeGate agent preview">
+        <div className="mini-window-head"><span className="window-dots"><i /><i /><i /></span><span><Sparkles size={12} /> CodeGate Agent</span><span className="agent-ready">Scanning</span></div>
         <div className="ai-body">
-          <div className="ai-message"><span className="ai-avatar"><Sparkles size={13} /></span><div><b>Linear Agent</b><p>I've grouped the incoming issues by team and drafted a prioritized plan for review.</p></div></div>
-          <div className="ai-plan-card"><div className="plan-card-title"><span className="plan-icon"><Command size={13} /></span><span>Q4 mobile reliability</span><span className="plan-status">Draft</span></div><div className="plan-card-line" /><div className="plan-card-line short" /><div className="plan-card-line shorter" /><div className="plan-card-footer"><span>12 issues</span><span>3 projects</span><span>Open plan <ArrowRight size={12} /></span></div></div>
-          <div className="ai-input"><span>Ask Linear Agent anything...</span><CornerDownRight size={14} /></div>
+          <div className="ai-message"><span className="ai-avatar"><Sparkles size={13} /></span><div><b>CodeGate Agent</b><p>Scanned 142 functions. Found 3 definite leaks and 1 conditional leak. Autofix ready for 3 of them.</p></div></div>
+          <div className="ai-plan-card"><div className="plan-card-title"><span className="plan-icon"><Command size={13} /></span><span>api/file_processor.py</span><span className="plan-status">3 leaks</span></div><div className="plan-card-line" /><div className="plan-card-line short" /><div className="plan-card-line shorter" /><div className="plan-card-footer"><span>142 fns scanned</span><span>4 leaks found</span><span>View report <ArrowRight size={12} /></span></div></div>
+          <div className="ai-input"><span>Ask CodeGate Agent anything...</span><CornerDownRight size={14} /></div>
         </div>
       </div>
     );
@@ -420,7 +420,7 @@ function BuildReviewBoard() {
         {["ENG-2254  Reduce unnecessary map re-rendering on handoff", "ENG-2291  Clean up deprecated APIs used by the rider", "ENG-2327  Speed up CI pipelines for mobile builds"].map((issue) => <div className="review-issue muted-issue" key={issue}><span className="issue-signal signal-gray">▥</span><span>{issue}</span></div>)}
       </aside>
       <div className="diff-window">
-        <div className="diff-window-bar"><span className="file-icon">◧</span><span className="file-path">kinetic-ios/src/screens/Home/HomeScreen.tsx</span><span className="diff-branch">Linear <ChevronDown size={11} /></span></div>
+        <div className="diff-window-bar"><span className="file-icon">◧</span><span className="file-path">kinetic-ios/src/screens/Home/HomeScreen.tsx</span><span className="diff-branch">CodeGate <ChevronDown size={11} /></span></div>
         <div className="diff-editor-head"><span>←</span><span>Changes</span><span className="diff-count">2 files</span><span className="editor-action">⋯</span></div>
         <div className="diff-columns"><span>HEAD</span><span>CHANGES</span></div>
         <div className="diff-code">
@@ -515,8 +515,8 @@ export default function Home() {
           <motion.div style={{ y: heroY, opacity: heroOpacity }} className="hero-content shell">
             <div className="eyebrow"><span className="eyebrow-line" />PRODUCT DEVELOPMENT SYSTEM <span className="eyebrow-code">01 — 26</span></div>
             <div className="hero-copy reveal-on-load" ref={heroReveal.ref} data-visible={heroReveal.visible}>
-              <h1 id="hero-title">The product development <em>system</em> for teams and agents.</h1>
-              <p>Purpose-built for planning and building products. Designed for the AI era.</p>
+              <h1 id="hero-title">Stop resource leaks <em>before</em> they hit production.</h1>
+              <p>CodeGate performs path-sensitive static analysis on Python code to catch unclosed file handles, sockets, and subprocesses on every reachable branch — and fixes them automatically.</p>
               <div className="hero-actions">
                 <button
                   type="button"
@@ -525,7 +525,7 @@ export default function Home() {
                 >
                   Get started <ArrowRight size={15} />
                 </button>
-                <a className="text-button" href="#product">Explore the system <ArrowUpRight size={15} /></a>
+                <a className="text-button" href="#product">See how it works <ArrowUpRight size={15} /></a>
               </div>
             </div>
             <div className="hero-meta"><span>SCROLL TO EXPLORE</span><span className="hero-meta-rule" /><span>01 / 08</span></div>
@@ -577,8 +577,8 @@ export default function Home() {
           <div className="shell">
             <div className="section-intro reveal-on-load" ref={figureReveal.ref} data-visible={figureReveal.visible}>
               <span className="section-kicker">THE SYSTEM, AT ITS CORE</span>
-              <h2 id="figures-title">A new species of product tool.</h2>
-              <p>Purpose-built for modern teams with AI workflows at their core, Linear sets a new standard for planning and building products.</p>
+              <h2 id="figures-title">Leak detection that actually reasons.</h2>
+              <p>Most linters check if you called close() somewhere. CodeGate traces every control-flow path to guarantee cleanup on every reachable exit — not just the happy path.</p>
             </div>
             <div className="figure-grid">
               {figures.map((figure, index) => (
@@ -597,7 +597,7 @@ export default function Home() {
 
         <section className="feature-section intake-section" id="intake" aria-labelledby="intake-title">
           <div className="shell feature-layout">
-            <div className="feature-copy reveal-on-load" ref={intakeReveal.ref} data-visible={intakeReveal.visible}><span className="section-kicker">01 / INTAKE</span><h2 id="intake-title">Turn every conversation into action.</h2><p>Automatically turn conversations and customer feedback into actionable issues that are instantly routed, labeled, and prioritized for the right team.</p><a className="feature-link" href="#now">Learn more <ArrowRight size={14} /></a></div>
+            <div className="feature-copy reveal-on-load" ref={intakeReveal.ref} data-visible={intakeReveal.visible}><span className="section-kicker">01 / DETECT</span><h2 id="intake-title">Find every leak, on every path.</h2><p>CodeGate scans your Python functions using Scalpel's control-flow graph. It checks every branch — if/else, loops, try/except — so a leak hiding behind an early return never slips through.</p><a className="feature-link" href="#product">See detection in action <ArrowRight size={14} /></a></div>
             <FeatureMockup kind="intake" />
           </div>
         </section>
@@ -605,29 +605,29 @@ export default function Home() {
         <section className="feature-section ai-section" id="ai" aria-labelledby="ai-title">
           <div className="shell feature-layout feature-layout-reverse">
             <FeatureMockup kind="ai" />
-            <div className="feature-copy reveal-on-load" ref={aiReveal.ref} data-visible={aiReveal.visible}><span className="section-kicker">02 / AI</span><h2 id="ai-title">Agents that move work forward.</h2><p>Linear Agent understands your team's context, coordinates the details, and handles the work between an idea and a shipped product.</p><a className="feature-link" href="#agents">Meet Linear Agent <ArrowRight size={14} /></a></div>
+            <div className="feature-copy reveal-on-load" ref={aiReveal.ref} data-visible={aiReveal.visible}><span className="section-kicker">02 / ANALYZE</span><h2 id="ai-title">Alias-aware. Ownership-smart.</h2><p>CodeGate Agent tracks aliased variables (g = f), detects leaks from reassignment without close(), and understands when a resource is intentionally transferred via return or passed to a helper — no false alarms.</p><a className="feature-link" href="#agents">Meet CodeGate Agent <ArrowRight size={14} /></a></div>
           </div>
         </section>
 
         <section className="feature-section plan-section" id="plan" aria-labelledby="plan-title">
           <div className="shell feature-layout">
-            <div className="feature-copy reveal-on-load" ref={planReveal.ref} data-visible={planReveal.visible}><span className="section-kicker">03 / PLAN</span><h2 id="plan-title">Clarity from first thought to final ship.</h2><p>Projects, documents, and issues stay connected in one focused workspace, so teams always know what matters next.</p><a className="feature-link" href="#projects">Explore planning <ArrowRight size={14} /></a></div>
+            <div className="feature-copy reveal-on-load" ref={planReveal.ref} data-visible={planReveal.visible}><span className="section-kicker">03 / FIX</span><h2 id="plan-title">Auto-fix with a single flag.</h2><p>Pass <code>--fix</code> and CodeGate rewrites leaky open/close patterns to idiomatic <code>with</code> statements using LibCST — preserving your exact comments, blank lines, and formatting, with zero manual effort.</p><a className="feature-link" href="#projects">Explore autofix <ArrowRight size={14} /></a></div>
             <FeatureMockup kind="plan" />
           </div>
         </section>
 
         <section className="planning-monitor-section" id="planning" aria-labelledby="planning-title">
           <div className="shell planning-header">
-            <div className="planning-heading"><span className="section-kicker">04 / PLAN</span><h2 id="planning-title">Planning<br />and monitoring</h2></div>
-            <div className="planning-description"><p>Plan and navigate from idea to launch. Align your team with product initiatives, strategic roadmaps, and clear, up-to-date PRDs.</p><a className="feature-link" href="#projects">Learn more <ArrowRight size={14} /></a></div>
+            <div className="planning-heading"><span className="section-kicker">04 / CI/CD</span><h2 id="planning-title">Gate every<br />pull request</h2></div>
+            <div className="planning-description"><p>Drop one YAML file into any Python repo and CodeGate runs on every push and pull request. Catches new leaks before they merge, reports line numbers, and posts a detailed scan summary right in the PR.</p><a className="feature-link" href="#projects">Learn more <ArrowRight size={14} /></a></div>
           </div>
           <div className="shell planning-board-wrap"><PlanningBoard /></div>
         </section>
 
         <section className="build-review-section" id="build" aria-labelledby="build-title">
           <div className="shell build-header">
-            <div className="build-heading"><span className="section-kicker">05 / BUILD</span><h2 id="build-title">Build, review,<br />and ship</h2></div>
-            <div className="build-description"><p>Streamline code reviews with clear diffs, better context, and fewer back-and-forth comments. Keep PRs moving without sacrificing quality.</p><a className="feature-link" href="#projects">Learn more <ArrowRight size={14} /></a></div>
+            <div className="build-heading"><span className="section-kicker">05 / REPORT</span><h2 id="build-title">Precise reports,<br />zero noise</h2></div>
+            <div className="build-description"><p>Every report includes the function name, line number, variable, the acquire API used, and the exact leaking CFG path — so developers understand precisely what went wrong with zero ambiguity.</p><a className="feature-link" href="#projects">Learn more <ArrowRight size={14} /></a></div>
           </div>
           <div className="shell build-board-wrap"><BuildReviewBoard /></div>
         </section>
@@ -635,16 +635,16 @@ export default function Home() {
         <ParallaxComponent />
 
         <section className="statement-section" id="customers">
-          <div className="statement-grid shell"><span className="section-kicker">THE LINEAR WAY</span><h2>Designed for teams that care about the details.</h2><p>When the system gets out of the way, thoughtful teams find the momentum to build products people love.</p><a className="primary-button" href="#signup">See Linear in action <Play size={14} fill="currentColor" /></a></div>
+          <div className="statement-grid shell"><span className="section-kicker">THE CODEGATE WAY</span><h2>Code that closes cleanly. Always.</h2><p>When every resource is guaranteed to be released on every path, your code becomes predictably correct — and your team ships with real confidence.</p><a className="primary-button" href="#signup">See CodeGate in action <Play size={14} fill="currentColor" /></a></div>
           <div className="statement-rule statement-rule-a" /><div className="statement-rule statement-rule-b" />
         </section>
 
-        <section className="footer-cta" id="signup"><div className="shell footer-cta-inner"><div><span className="section-kicker">START WITH MOMENTUM</span><h2>Make product development feel <em>inevitable.</em></h2></div><a className="primary-button primary-button-light" href="#contact">Get started <ArrowRight size={15} /></a></div></section>
+        <section className="footer-cta" id="signup"><div className="shell footer-cta-inner"><div><span className="section-kicker">START DETECTING TODAY</span><h2>Ship Python code that <em>never leaks.</em></h2></div><a className="primary-button primary-button-light" href="#contact">Get started <ArrowRight size={15} /></a></div></section>
       </main>
 
       <footer className="site-footer" id="contact">
         <div className="shell footer-grid">
-          <div className="footer-brand"><a className="wordmark footer-wordmark" href="#top"><LinearMark /><span>Linear</span></a><p>Linear is a purpose-built tool for planning and building products.</p><span className="footer-fine">© 2026 Linear Orbit, Inc.</span></div>
+          <div className="footer-brand"><a className="wordmark footer-wordmark" href="#top"><LinearMark /><span>CodeGate</span></a><p>CodeGate is a path-sensitive static resource-leak analyzer for Python — detects, reports, and auto-fixes unclosed handles.</p><span className="footer-fine">© 2026 CodeGate, Inc.</span></div>
           <div className="footer-links"><div><span>Product</span><a href="#intake">Intake</a><a href="#plan">Plan</a><a href="#ai">AI</a><a href="#build">Build</a></div><div><span>Resources</span><a href="#customers">Customers</a><a href="#now">Now</a><a href="#contact">Contact</a><a href="#pricing">Pricing</a></div><div><span>Connect</span><a href="#login">Log in</a><a href="#signup">Sign up</a><a href="#contact">Twitter / X</a><a href="#contact">Security</a></div></div>
         </div>
         <div className="shell footer-bottom"><span>Built for focus.</span><span className="footer-bottom-right">System status <i className="status-pulse" /> All systems operational</span></div>
