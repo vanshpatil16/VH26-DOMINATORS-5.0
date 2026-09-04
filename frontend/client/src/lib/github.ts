@@ -121,3 +121,106 @@ export function processCommitTimeline(commits: GitHubCommit[]): CommitTimelinePo
     sha: data.sha,
   }));
 }
+
+/* ─── Repository source-code access (used by the /graph AST visualizer) ──── */
+
+export interface RepoFile {
+  path: string;
+  size: number;
+  sha: string;
+}
+
+/**
+ * Optional auth header. A PAT stored under `github_token` (same key the
+ * dashboard clears on logout) lifts the 60 req/h unauthenticated rate limit.
+ */
+function ghHeaders(): HeadersInit {
+  const token =
+    typeof localStorage !== "undefined" ? localStorage.getItem("github_token") : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export async function fetchRepoMeta(
+  owner: string,
+  repo: string
+): Promise<GitHubRepo | null> {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: ghHeaders(),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error(`Error fetching repo ${owner}/${repo}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Full recursive file tree of a repo branch, filtered to source blobs.
+ * `extensions` defaults to Python because that is what the CodeGate
+ * analyzer can parse.
+ */
+export async function fetchRepoTree(
+  owner: string,
+  repo: string,
+  branch = "main",
+  extensions: string[] = [".py"]
+): Promise<RepoFile[]> {
+  const load = async (ref: string) =>
+    fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/trees/${ref}?recursive=1`,
+      { headers: ghHeaders() }
+    );
+
+  try {
+    let res = await load(branch);
+    if (!res.ok && branch !== "master") res = await load("master");
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    if (!Array.isArray(data?.tree)) return [];
+
+    return data.tree
+      .filter(
+        (n: any) =>
+          n.type === "blob" &&
+          extensions.some((ext) => String(n.path).toLowerCase().endsWith(ext))
+      )
+      .map((n: any) => ({ path: n.path as string, size: n.size ?? 0, sha: n.sha as string }))
+      .sort((a: RepoFile, b: RepoFile) => a.path.localeCompare(b.path));
+  } catch (err) {
+    console.error(`Error fetching tree for ${owner}/${repo}:`, err);
+    return [];
+  }
+}
+
+/** Raw UTF-8 source of a single file (Contents API, base64-decoded). */
+export async function fetchFileContent(
+  owner: string,
+  repo: string,
+  path: string,
+  ref?: string
+): Promise<string | null> {
+  try {
+    const url =
+      `https://api.github.com/repos/${owner}/${repo}/contents/${path
+        .split("/")
+        .map(encodeURIComponent)
+        .join("/")}` + (ref ? `?ref=${encodeURIComponent(ref)}` : "");
+
+    const res = await fetch(url, { headers: ghHeaders() });
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    if (typeof data?.content !== "string") return null;
+
+    // atob → bytes → UTF-8 (files with non-ASCII identifiers/comments)
+    const binary = atob(data.content.replace(/\n/g, ""));
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    return new TextDecoder("utf-8").decode(bytes);
+  } catch (err) {
+    console.error(`Error fetching ${path} from ${owner}/${repo}:`, err);
+    return null;
+  }
+}

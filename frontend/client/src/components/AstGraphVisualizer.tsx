@@ -1,5 +1,6 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
-import { Network, Cpu, Search, Code2, GitBranch, Zap, Move } from "lucide-react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { Network, Cpu, Search, Code2, GitBranch, Zap, Move, Crosshair, Loader2, AlertTriangle, Maximize2, Minimize2, PanelRightClose, PanelRightOpen } from "lucide-react";
+import type { AstNode as SourceAstNode } from "@/lib/codegate";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
@@ -19,9 +20,18 @@ interface NodePos {
   y: number;
 }
 
-/* ─── Static node definitions ────────────────────────────────────────────── */
+interface AstGraphVisualizerProps {
+  /** Real AST produced by the CodeGate backend for a fetched source file. */
+  tree?: SourceAstNode | null;
+  /** e.g. "owner/repo · pkg/module.py" — shown in the header + canvas strip. */
+  sourceLabel?: string;
+  loading?: boolean;
+  error?: string | null;
+}
 
-const NODE_DEFS: AstNode[] = [
+/* ─── Demo node definitions (fallback when no file is loaded) ────────────── */
+
+const DEMO_NODE_DEFS: AstNode[] = [
   { id: "program",        label: "Program",             type: "Root",           detail: "index.ts · L1–180",  fill: "#1e1140", stroke: "#7c3aed", textColor: "#c4b5fd", children: ["import-block","func-fetch","func-compute"] },
   { id: "import-block",   label: "ImportDecl",          type: "Import",         detail: "L1–10",              fill: "#0c1f2e", stroke: "#0891b2", textColor: "#67e8f9", children: ["id-react","id-github"] },
   { id: "func-fetch",     label: "fetchTelemetry()",    type: "FunctionDecl",   detail: "L12–48",             fill: "#0c2218", stroke: "#059669", textColor: "#6ee7b7", children: ["if-auth","return-payload"] },
@@ -37,37 +47,146 @@ const NODE_DEFS: AstNode[] = [
   { id: "call-push",      label: "results.push(delta)", type: "CallExpression", detail: "L72",                fill: "#0d200f", stroke: "#16a34a", textColor: "#86efac", children: [] },
 ];
 
-const NODES: Record<string, AstNode> = Object.fromEntries(NODE_DEFS.map(n => [n.id, n]));
-const EDGES = NODE_DEFS.flatMap(n => n.children.map(c => ({ from: n.id, to: c })));
+/* ─── Python AST node-type → palette (same colour family as the demo) ────── */
 
-/* ─── Initial BFS layout positions ──────────────────────────────────────── */
+type Swatch = { fill: string; stroke: string; textColor: string };
+
+const ROOT_SWATCH:    Swatch = { fill: "#1e1140", stroke: "#7c3aed", textColor: "#c4b5fd" };
+const FUNC_SWATCH:    Swatch = { fill: "#0c2218", stroke: "#059669", textColor: "#6ee7b7" };
+const CLASS_SWATCH:   Swatch = { fill: "#1a0f2e", stroke: "#9333ea", textColor: "#d8b4fe" };
+const BRANCH_SWATCH:  Swatch = { fill: "#1e1400", stroke: "#d97706", textColor: "#fde68a" };
+const LOOP_SWATCH:    Swatch = { fill: "#160f2e", stroke: "#7c3aed", textColor: "#c4b5fd" };
+const RETURN_SWATCH:  Swatch = { fill: "#0a1c1c", stroke: "#0d9488", textColor: "#99f6e4" };
+const ASSIGN_SWATCH:  Swatch = { fill: "#0c1520", stroke: "#2563eb", textColor: "#93c5fd" };
+const CALL_SWATCH:    Swatch = { fill: "#0d200f", stroke: "#16a34a", textColor: "#86efac" };
+const RAISE_SWATCH:   Swatch = { fill: "#200a0a", stroke: "#dc2626", textColor: "#fca5a5" };
+const IMPORT_SWATCH:  Swatch = { fill: "#0c1f2e", stroke: "#0891b2", textColor: "#67e8f9" };
+const LITERAL_SWATCH: Swatch = { fill: "#081520", stroke: "#0e7490", textColor: "#a5f3fc" };
+const DEFAULT_SWATCH: Swatch = { fill: "#101320", stroke: "#3f4760", textColor: "#94a3b8" };
+
+const TYPE_SWATCHES: Record<string, Swatch> = {
+  Module: ROOT_SWATCH,
+  FunctionDef: FUNC_SWATCH, AsyncFunctionDef: FUNC_SWATCH, Lambda: FUNC_SWATCH, arguments: FUNC_SWATCH, arg: FUNC_SWATCH,
+  ClassDef: CLASS_SWATCH,
+  If: BRANCH_SWATCH, IfExp: BRANCH_SWATCH, Match: BRANCH_SWATCH, match_case: BRANCH_SWATCH, Try: BRANCH_SWATCH, ExceptHandler: BRANCH_SWATCH,
+  For: LOOP_SWATCH, AsyncFor: LOOP_SWATCH, While: LOOP_SWATCH, comprehension: LOOP_SWATCH, With: LOOP_SWATCH, AsyncWith: LOOP_SWATCH, withitem: LOOP_SWATCH,
+  Return: RETURN_SWATCH, Yield: RETURN_SWATCH, YieldFrom: RETURN_SWATCH, Await: RETURN_SWATCH,
+  Assign: ASSIGN_SWATCH, AugAssign: ASSIGN_SWATCH, AnnAssign: ASSIGN_SWATCH, NamedExpr: ASSIGN_SWATCH, Delete: ASSIGN_SWATCH,
+  Call: CALL_SWATCH, Attribute: CALL_SWATCH,
+  Raise: RAISE_SWATCH, Assert: RAISE_SWATCH, Break: RAISE_SWATCH, Continue: RAISE_SWATCH,
+  Import: IMPORT_SWATCH, ImportFrom: IMPORT_SWATCH, alias: IMPORT_SWATCH,
+  Constant: LITERAL_SWATCH, JoinedStr: LITERAL_SWATCH, FormattedValue: LITERAL_SWATCH,
+  List: LITERAL_SWATCH, Dict: LITERAL_SWATCH, Tuple: LITERAL_SWATCH, Set: LITERAL_SWATCH,
+};
+
+function swatchFor(type: string): Swatch {
+  return TYPE_SWATCHES[type] ?? DEFAULT_SWATCH;
+}
+
+/* ─── Source AST → flat draggable graph nodes ────────────────────────────── */
+
+const NODE_BUDGET = 260;
+
+function flattenTree(root: SourceAstNode, maxDepth: number): AstNode[] {
+  const out: AstNode[] = [];
+  const queue: { node: SourceAstNode; depth: number }[] = [{ node: root, depth: 0 }];
+  let claimed = 1; // the root itself
+
+  while (queue.length && out.length < NODE_BUDGET) {
+    const { node, depth } = queue.shift()!;
+    const kids = depth < maxDepth ? node.children : [];
+    const kidIds: string[] = [];
+
+    for (const c of kids) {
+      if (claimed >= NODE_BUDGET) break;
+      claimed += 1;
+      kidIds.push(c.id);
+      queue.push({ node: c, depth: depth + 1 });
+    }
+
+    const sw = swatchFor(node.type);
+    const hidden = node.children.length - kidIds.length;
+    out.push({
+      id: node.id,
+      label: node.label && node.label !== node.type ? node.label : node.type,
+      type: node.type,
+      detail:
+        (node.line != null ? `L${node.line}` : "—") +
+        (node.truncated ? " · truncated" : hidden > 0 ? ` · +${hidden} hidden` : ""),
+      fill: sw.fill,
+      stroke: sw.stroke,
+      textColor: sw.textColor,
+      children: kidIds,
+    });
+  }
+  return out;
+}
+
+function findInTree(root: SourceAstNode, id: string): SourceAstNode | null {
+  if (root.id === id) return root;
+  for (const c of root.children) {
+    const hit = findInTree(c, id);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function countTree(root: SourceAstNode): number {
+  return 1 + root.children.reduce((a, c) => a + countTree(c), 0);
+}
+
+/* ─── Layout ─────────────────────────────────────────────────────────────── */
 
 const NODE_W = 158;
 const NODE_H = 56;
 const H_GAP  = 50;
 const V_GAP  = 100;
+const MIN_CANVAS_W = 900;
+const MIN_CANVAS_H = 540;
 
-function bfsLayout(): Record<string, NodePos> {
+interface Layout {
+  positions: Record<string, NodePos>;
+  width: number;
+  height: number;
+  depth: number;
+}
+
+function bfsLayout(defs: AstNode[]): Layout {
+  const byId: Record<string, AstNode> = Object.fromEntries(defs.map(n => [n.id, n]));
+  const rootId = defs[0]?.id;
   const levels: string[][] = [];
   const visited = new Set<string>();
-  let queue = ["program"];
+  let queue = rootId ? [rootId] : [];
+
   while (queue.length) {
     levels.push([...queue]);
     queue.forEach(id => visited.add(id));
     const next: string[] = [];
-    queue.forEach(id => NODES[id]?.children.forEach(c => { if (!visited.has(c)) next.push(c); }));
+    queue.forEach(id => byId[id]?.children.forEach(c => {
+      if (byId[c] && !visited.has(c) && !next.includes(c)) next.push(c);
+    }));
     queue = next;
   }
-  const pos: Record<string, NodePos> = {};
+
+  // nodes clipped off the reachable set by the budget still get a row
+  const orphans = defs.filter(n => !visited.has(n.id)).map(n => n.id);
+  if (orphans.length) levels.push(orphans);
+
+  const widest = levels.reduce((m, r) => Math.max(m, r.length), 0);
+  const width  = Math.max(MIN_CANVAS_W, 80 + widest * NODE_W + Math.max(0, widest - 1) * H_GAP);
+  const height = Math.max(MIN_CANVAS_H, 80 + levels.length * (NODE_H + V_GAP));
+
+  const positions: Record<string, NodePos> = {};
   levels.forEach((row, li) => {
     const totalW = row.length * NODE_W + (row.length - 1) * H_GAP;
-    let sx = 40 + (800 - totalW) / 2; // centre inside 800px canvas
+    let sx = (width - totalW) / 2;
     row.forEach(id => {
-      pos[id] = { x: sx, y: 40 + li * (NODE_H + V_GAP) };
+      positions[id] = { x: Math.max(0, sx), y: 40 + li * (NODE_H + V_GAP) };
       sx += NODE_W + H_GAP;
     });
   });
-  return pos;
+
+  return { positions, width, height, depth: levels.length };
 }
 
 /* ─── Animated dash CSS ──────────────────────────────────────────────────── */
@@ -93,18 +212,25 @@ const ANIM_CSS = `
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
-const CANVAS_W = 900;
-const CANVAS_H = 540;
-
-export default function AstGraphVisualizer() {
-  const [positions, setPositions] = useState<Record<string, NodePos>>(bfsLayout);
-  const [selected,  setSelected]  = useState<string | null>(null);
-  const [search,    setSearch]    = useState("");
+export default function AstGraphVisualizer({
+  tree = null,
+  sourceLabel,
+  loading = false,
+  error = null,
+}: AstGraphVisualizerProps) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const [search,   setSearch]   = useState("");
+  const [maxDepth, setMaxDepth] = useState(4);
+  const [focusId,  setFocusId]  = useState<string | null>(null);
+  const [dragged,  setDragged]  = useState<Record<string, NodePos>>({});
+  const [expanded, setExpanded] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
 
   // drag state (ref so no re-render on mousemove)
   const draggingNode = useRef<string | null>(null);
   const dragStart    = useRef<{ mx: number; my: number; nx: number; ny: number }>({ mx:0, my:0, nx:0, ny:0 });
   const svgRef       = useRef<SVGSVGElement>(null);
+  const shellRef     = useRef<HTMLDivElement>(null);
 
   // inject keyframe CSS once
   useEffect(() => {
@@ -113,6 +239,79 @@ export default function AstGraphVisualizer() {
     document.head.appendChild(el);
     return () => { document.head.removeChild(el); };
   }, []);
+
+  /* expand to the whole screen — native fullscreen with an overlay fallback */
+  const toggleExpanded = useCallback(() => {
+    const next = !expanded;
+    setExpanded(next);
+    if (next) {
+      shellRef.current?.requestFullscreen?.().catch(() => {/* overlay is enough */});
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, [expanded]);
+
+  /* Esc, and leaving native fullscreen by any other means, collapse the canvas */
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setExpanded(false);
+        if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+      }
+    };
+    const onFsChange = () => { if (!document.fullscreenElement) setExpanded(false); };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onFsChange);
+    };
+  }, [expanded]);
+
+  /* a new file was analysed → drop selection / focus / manual positions */
+  useEffect(() => {
+    setSelected(null);
+    setFocusId(null);
+    setDragged({});
+  }, [tree]);
+
+  /* the sub-tree currently rendered (whole module unless a node is focused) */
+  const viewRoot = useMemo(() => {
+    if (!tree) return null;
+    return (focusId && findInTree(tree, focusId)) || tree;
+  }, [tree, focusId]);
+
+  const nodeDefs = useMemo(
+    () => (viewRoot ? flattenTree(viewRoot, maxDepth) : DEMO_NODE_DEFS),
+    [viewRoot, maxDepth],
+  );
+
+  const NODES = useMemo(
+    () => Object.fromEntries(nodeDefs.map(n => [n.id, n])) as Record<string, AstNode>,
+    [nodeDefs],
+  );
+
+  const EDGES = useMemo(
+    () => nodeDefs.flatMap(n => n.children.filter(c => NODES[c]).map(c => ({ from: n.id, to: c }))),
+    [nodeDefs, NODES],
+  );
+
+  const layout = useMemo(() => bfsLayout(nodeDefs), [nodeDefs]);
+  useEffect(() => { setDragged({}); }, [layout]);
+
+  const posOf = useCallback(
+    (id: string): NodePos => dragged[id] ?? layout.positions[id] ?? { x: 0, y: 0 },
+    [dragged, layout],
+  );
+
+  /* full screen hands the canvas the space the inspector gives up */
+  const showInspector = !expanded || inspectorOpen;
+  const canvasSpan    = !expanded ? "lg:col-span-8" : inspectorOpen ? "lg:col-span-10" : "lg:col-span-12";
+
+  const isLive     = !!tree;
+  const totalNodes = tree ? countTree(tree) : nodeDefs.length;
+  const maxFanout  = nodeDefs.reduce((m, n) => Math.max(m, n.children.length), 0);
 
   /* convert screen → SVG coords */
   const svgPoint = useCallback((clientX: number, clientY: number) => {
@@ -130,13 +329,11 @@ export default function AstGraphVisualizer() {
     e.stopPropagation();
     e.preventDefault();
     const p = svgPoint(e.clientX, e.clientY);
+    const cur = posOf(id);
     draggingNode.current = id;
-    dragStart.current = {
-      mx: p.x, my: p.y,
-      nx: positions[id].x, ny: positions[id].y,
-    };
+    dragStart.current = { mx: p.x, my: p.y, nx: cur.x, ny: cur.y };
     setSelected(id);
-  }, [positions, svgPoint]);
+  }, [posOf, svgPoint]);
 
   /* svg mousemove → update dragged node position */
   const onSvgMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
@@ -145,14 +342,14 @@ export default function AstGraphVisualizer() {
     const dx = p.x - dragStart.current.mx;
     const dy = p.y - dragStart.current.my;
     const id = draggingNode.current;
-    setPositions(prev => ({
+    setDragged(prev => ({
       ...prev,
       [id]: {
-        x: Math.max(0, Math.min(CANVAS_W - NODE_W, dragStart.current.nx + dx)),
-        y: Math.max(0, Math.min(CANVAS_H - NODE_H, dragStart.current.ny + dy)),
+        x: Math.max(0, Math.min(layout.width  - NODE_W, dragStart.current.nx + dx)),
+        y: Math.max(0, Math.min(layout.height - NODE_H, dragStart.current.ny + dy)),
       },
     }));
-  }, [svgPoint]);
+  }, [svgPoint, layout]);
 
   const onSvgMouseUp = useCallback(() => {
     draggingNode.current = null;
@@ -164,15 +361,46 @@ export default function AstGraphVisualizer() {
      NODES[id].type.toLowerCase().includes(search.toLowerCase()));
 
   /* edge anchor: bottom-centre of source, top-centre of target */
-  const srcX = (id: string) => positions[id].x + NODE_W / 2;
-  const srcY = (id: string) => positions[id].y + NODE_H;
-  const dstX = (id: string) => positions[id].x + NODE_W / 2;
-  const dstY = (id: string) => positions[id].y;
+  const srcX = (id: string) => posOf(id).x + NODE_W / 2;
+  const srcY = (id: string) => posOf(id).y + NODE_H;
+  const dstX = (id: string) => posOf(id).x + NODE_W / 2;
+  const dstY = (id: string) => posOf(id).y;
 
   const node = selected ? NODES[selected] : null;
 
+  const legend = isLive
+    ? [
+        { color: "#7c3aed", label: "Module / Loop" },
+        { color: "#059669", label: "FunctionDef" },
+        { color: "#9333ea", label: "ClassDef" },
+        { color: "#d97706", label: "If / Try / Match" },
+        { color: "#16a34a", label: "Call" },
+        { color: "#0d9488", label: "Return / Yield" },
+        { color: "#2563eb", label: "Assign" },
+        { color: "#0891b2", label: "Import / Literal" },
+        { color: "#dc2626", label: "Raise / Assert" },
+      ]
+    : [
+        { color: "#7c3aed", label: "Root / Program" },
+        { color: "#059669", label: "FunctionDecl" },
+        { color: "#0891b2", label: "Import / Literal" },
+        { color: "#d97706", label: "IfStatement" },
+        { color: "#dc2626", label: "ThrowStatement" },
+        { color: "#2563eb", label: "AssignExpr" },
+      ];
+
   return (
-    <div className="bg-[#13151b] border border-[#202430] rounded-2xl p-6 space-y-5">
+    <div
+      ref={shellRef}
+      className={
+        expanded
+          ? "fixed inset-0 z-50 bg-[#07080a] p-3 md:p-5 overflow-hidden"
+          : ""
+      }
+    >
+    <div className={`bg-[#13151b] border border-[#202430] rounded-2xl p-6 space-y-5 ${
+      expanded ? "h-full flex flex-col overflow-hidden" : ""
+    }`}>
 
       {/* ── Header ── */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-[#1f2432] pb-4">
@@ -186,29 +414,71 @@ export default function AstGraphVisualizer() {
           <p className="text-xs text-zinc-400 flex items-center space-x-1.5">
             <Move className="w-3.5 h-3.5 text-purple-400" />
             <span>
-              <span className="text-purple-300">Drag any node</span> to reposition it · click to inspect · edges follow in real-time
+              {isLive ? (
+                <>
+                  Parsed from{" "}
+                  <span className="text-purple-300 font-mono">{sourceLabel || "GitHub source"}</span>
+                  {" "}· drag any node · click to inspect
+                </>
+              ) : (
+                <>
+                  <span className="text-purple-300">Drag any node</span> to reposition it · click to inspect · edges follow in real-time
+                </>
+              )}
             </span>
           </p>
         </div>
-        <div className="relative w-full md:w-64">
-          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search node or type…"
-            className="w-full bg-[#181b24] border border-[#272c3d] focus:border-cyan-500 text-white placeholder-zinc-500 pl-9 pr-3 py-2 rounded-xl text-xs font-mono outline-none transition-colors"
-          />
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          {isLive && (
+            <select
+              value={maxDepth}
+              onChange={e => setMaxDepth(Number(e.target.value))}
+              className="bg-[#181b24] border border-[#272c3d] focus:border-cyan-500 text-zinc-300 px-3 py-2 rounded-xl text-xs font-mono outline-none transition-colors"
+              title="Levels of the tree to render"
+            >
+              {[2, 3, 4, 5, 6, 8].map(d => (
+                <option key={d} value={d}>depth ≤ {d}</option>
+              ))}
+            </select>
+          )}
+          <div className="relative flex-1 md:w-64">
+            <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search node or type…"
+              className="w-full bg-[#181b24] border border-[#272c3d] focus:border-cyan-500 text-white placeholder-zinc-500 pl-9 pr-3 py-2 rounded-xl text-xs font-mono outline-none transition-colors"
+            />
+          </div>
+          {expanded && (
+            <button
+              onClick={() => setInspectorOpen(o => !o)}
+              title={inspectorOpen ? "Hide node inspector" : "Show node inspector"}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#181b24] border border-[#272c3d] hover:border-cyan-500/50 hover:bg-[#202533] text-zinc-400 hover:text-white text-xs font-mono transition-colors flex-shrink-0"
+            >
+              {inspectorOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+              <span className="hidden lg:inline">{inspectorOpen ? "Hide panel" : "Inspector"}</span>
+            </button>
+          )}
+          <button
+            onClick={toggleExpanded}
+            title={expanded ? "Exit full screen (Esc)" : "View graph full screen"}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#181b24] border border-[#272c3d] hover:border-purple-500/50 hover:bg-[#202533] text-zinc-400 hover:text-white text-xs font-mono transition-colors flex-shrink-0"
+          >
+            {expanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            <span className="hidden lg:inline">{expanded ? "Exit" : "Full screen"}</span>
+          </button>
         </div>
       </div>
 
       {/* ── Metrics ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
         {[
-          { label: "TOTAL NODES", val: NODE_DEFS.length,    color: "text-cyan-400" },
-          { label: "TOTAL EDGES", val: EDGES.length,        color: "text-purple-400" },
-          { label: "TREE DEPTH",  val: "4 Levels",          color: "text-emerald-400" },
-          { label: "COMPLEXITY",  val: "O(n log n)",        color: "text-amber-400" },
+          { label: isLive ? "NODES RENDERED" : "TOTAL NODES", val: isLive ? `${nodeDefs.length}/${totalNodes}` : nodeDefs.length, color: "text-cyan-400" },
+          { label: "TOTAL EDGES", val: EDGES.length,             color: "text-purple-400" },
+          { label: "TREE DEPTH",  val: `${layout.depth} Levels`, color: "text-emerald-400" },
+          { label: isLive ? "MAX FANOUT" : "COMPLEXITY", val: isLive ? `${maxFanout} children` : "O(n log n)", color: "text-amber-400" },
         ].map(m => (
           <div key={m.label} className="bg-[#0f1117] border border-[#202430] p-3 rounded-xl">
             <span className="text-zinc-500 text-[10px] block uppercase mb-0.5">{m.label}</span>
@@ -218,24 +488,62 @@ export default function AstGraphVisualizer() {
       </div>
 
       {/* ── Canvas + Inspector ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className={`grid grid-cols-1 lg:grid-cols-12 ${
+        expanded ? "gap-3 flex-1 min-h-0" : "gap-5"
+      }`}>
 
         {/* SVG Canvas */}
-        <div className="lg:col-span-8 bg-[#08090d] border border-[#1c2030] rounded-xl overflow-auto scrollbar-purple">
+        <div className={`${canvasSpan} bg-[#08090d] border border-[#1c2030] rounded-xl overflow-auto scrollbar-purple relative ${
+          expanded ? "h-full" : ""
+        }`}>
           {/* top label */}
           <div className="text-[10px] font-mono text-zinc-600 uppercase px-4 pt-3 pb-1 flex items-center justify-between">
-            <span>AST NODE GRAPH — drag nodes to reposition</span>
-            <span className="flex items-center space-x-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
-              <span>DUMMY · FUTURE: LIVE PARSE</span>
+            <span className="truncate pr-3">
+              {isLive ? `AST — ${sourceLabel || "github source"}` : "AST NODE GRAPH — drag nodes to reposition"}
+            </span>
+            <span className="flex items-center space-x-1.5 flex-shrink-0">
+              <span className={`w-2 h-2 rounded-full inline-block animate-pulse ${isLive ? "bg-emerald-500" : "bg-amber-500"}`} />
+              <span>{isLive ? "LIVE PARSE · GITHUB API" : "DEMO TREE · PICK A FILE"}</span>
             </span>
           </div>
 
+          {/* focused-subtree breadcrumb */}
+          {isLive && focusId && (
+            <div className="px-4 pb-1 flex items-center gap-2 text-[10px] font-mono">
+              <span className="text-zinc-500">focused subtree:</span>
+              <span className="text-purple-300">{viewRoot?.label || focusId}</span>
+              <button
+                onClick={() => setFocusId(null)}
+                className="text-cyan-400 hover:text-white underline underline-offset-2"
+              >
+                reset to module root
+              </button>
+            </div>
+          )}
+
+          {(loading || error) && (
+            <div className="absolute inset-0 z-10 bg-[#08090d]/85 backdrop-blur-sm flex flex-col items-center justify-center gap-2 text-center px-6">
+              {loading ? (
+                <>
+                  <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+                  <p className="text-xs font-mono text-zinc-400">
+                    Fetching source from GitHub &amp; parsing AST…
+                  </p>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="w-6 h-6 text-amber-400" />
+                  <p className="text-xs font-mono text-amber-300 max-w-sm break-words">{error}</p>
+                </>
+              )}
+            </div>
+          )}
+
           <svg
             ref={svgRef}
-            width={CANVAS_W}
-            height={CANVAS_H}
-            viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`}
+            width={layout.width}
+            height={layout.height}
+            viewBox={`0 0 ${layout.width} ${layout.height}`}
             style={{ display: "block", cursor: draggingNode.current ? "grabbing" : "default" }}
             onMouseMove={onSvgMouseMove}
             onMouseUp={onSvgMouseUp}
@@ -267,7 +575,7 @@ export default function AstGraphVisualizer() {
             </defs>
 
             {/* canvas dot-grid background */}
-            <rect width={CANVAS_W} height={CANVAS_H} fill="url(#grid)" />
+            <rect width={layout.width} height={layout.height} fill="url(#grid)" />
 
             {/* ── Edges (drawn under nodes) ── */}
             {EDGES.map(({ from, to }) => {
@@ -291,8 +599,8 @@ export default function AstGraphVisualizer() {
             })}
 
             {/* ── Nodes (drawn on top) ── */}
-            {NODE_DEFS.map(n => {
-              const { x, y } = positions[n.id];
+            {nodeDefs.map(n => {
+              const { x, y } = posOf(n.id);
               const isSel  = selected === n.id;
               const isDrag = draggingNode.current === n.id;
               const isHi   = isHighlighted(n.id);
@@ -303,6 +611,7 @@ export default function AstGraphVisualizer() {
                   transform={`translate(${x},${y})`}
                   onMouseDown={e => onNodeMouseDown(e, n.id)}
                   onClick={e => { e.stopPropagation(); if (!isDrag) setSelected(isSel ? null : n.id); }}
+                  onDoubleClick={e => { e.stopPropagation(); if (isLive) { setFocusId(n.id); setSelected(null); } }}
                   style={{ cursor: isDrag ? "grabbing" : "grab" }}
                 >
                   {/* aura */}
@@ -369,7 +678,12 @@ export default function AstGraphVisualizer() {
         </div>
 
         {/* ── Inspector ── */}
-        <div className="lg:col-span-4 bg-[#0f1117] border border-[#1c2030] rounded-xl p-5 flex flex-col space-y-4">
+        {showInspector && (
+        <div className={`bg-[#0f1117] border border-[#1c2030] rounded-xl flex flex-col ${
+          expanded
+            ? "lg:col-span-2 p-3 space-y-2.5 h-full overflow-y-auto scrollbar-purple"
+            : "lg:col-span-4 p-5 space-y-4"
+        }`}>
           <div className="flex items-center justify-between border-b border-[#1e2435] pb-3">
             <span className="text-xs font-mono text-cyan-400 font-semibold flex items-center space-x-1.5">
               <Cpu className="w-4 h-4" />
@@ -387,7 +701,7 @@ export default function AstGraphVisualizer() {
             <div className="space-y-3 text-xs font-mono flex-1">
               <div>
                 <span className="text-zinc-500 text-[10px] uppercase block mb-1">Identifier</span>
-                <span className="text-sm font-bold px-3 py-1.5 rounded-lg border inline-block"
+                <span className="text-sm font-bold px-3 py-1.5 rounded-lg border inline-block break-all"
                   style={{ background: node.fill, color: "#fff", borderColor: node.stroke }}>
                   {node.label}
                 </span>
@@ -403,9 +717,11 @@ export default function AstGraphVisualizer() {
                   <span className="text-white font-bold">{node.children.length}</span>
                 </div>
                 <div>
-                  <span className="text-zinc-500 text-[10px] uppercase block">Position</span>
+                  <span className="text-zinc-500 text-[10px] uppercase block">{isLive ? "Source" : "Position"}</span>
                   <span className="text-zinc-300">
-                    ({Math.round(positions[node.id].x)}, {Math.round(positions[node.id].y)})
+                    {isLive
+                      ? node.detail
+                      : `(${Math.round(posOf(node.id).x)}, ${Math.round(posOf(node.id).y)})`}
                   </span>
                 </div>
                 <div>
@@ -416,18 +732,30 @@ export default function AstGraphVisualizer() {
                 </div>
               </div>
 
+              {isLive && (
+                <button
+                  onClick={() => { setFocusId(node.id); setSelected(null); }}
+                  className="w-full flex items-center justify-center gap-2 bg-[#13151b] border border-[#272c3d] hover:border-cyan-500/50 text-zinc-300 hover:text-white px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <Crosshair className="w-3 h-3 text-cyan-400" />
+                  <span>Focus this subtree</span>
+                </button>
+              )}
+
               {node.children.length > 0 && (
                 <div>
                   <span className="text-zinc-500 text-[10px] uppercase block mb-1.5">Outgoing Edges →</span>
-                  <div className="space-y-1.5">
+                  <div className={`space-y-1.5 overflow-y-auto scrollbar-purple pr-1 ${
+                    expanded ? "max-h-none" : "max-h-52"
+                  }`}>
                     {node.children.map(c => (
                       <button key={c} onClick={() => setSelected(c)}
                         className="w-full flex items-center justify-between bg-[#13151b] border border-[#202430] hover:border-purple-500/50 px-3 py-1.5 rounded-lg transition-colors">
-                        <span className="flex items-center space-x-2">
-                          <GitBranch className="w-3 h-3 text-purple-400" />
-                          <span className="text-zinc-300">{NODES[c]?.label || c}</span>
+                        <span className="flex items-center space-x-2 min-w-0">
+                          <GitBranch className="w-3 h-3 text-purple-400 flex-shrink-0" />
+                          <span className="text-zinc-300 truncate">{NODES[c]?.label || c}</span>
                         </span>
-                        <span className="text-[9px] text-zinc-500">{NODES[c]?.type}</span>
+                        <span className="text-[9px] text-zinc-500 flex-shrink-0 ml-2">{NODES[c]?.type}</span>
                       </button>
                     ))}
                   </div>
@@ -438,7 +766,9 @@ export default function AstGraphVisualizer() {
                 <Zap className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
                 <p className="text-[10px] text-zinc-400 leading-relaxed">
                   <span className="text-white font-semibold">AST Search:</span>{" "}
-                  Future queries will use ASST traversal (BFS/DFS hybrid) on live-parsed code.
+                  {isLive
+                    ? "Nodes come from CodeGate's Python parser running on the file fetched via the GitHub API — double-click a node to re-root the graph."
+                    : "Load a repository file to replace this demo tree with a live-parsed AST."}
                 </p>
               </div>
             </div>
@@ -454,7 +784,10 @@ export default function AstGraphVisualizer() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5 justify-center mt-1">
-                {["FunctionDecl","IfStatement","ForOfStatement","CallExpression"].map(t => (
+                {(isLive
+                  ? ["FunctionDef", "If", "For", "Call"]
+                  : ["FunctionDecl", "IfStatement", "ForOfStatement", "CallExpression"]
+                ).map(t => (
                   <span key={t} className="text-[10px] font-mono bg-[#13151b] border border-[#202430] text-zinc-500 px-2 py-0.5 rounded">
                     {t}
                   </span>
@@ -463,18 +796,12 @@ export default function AstGraphVisualizer() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* ── Legend ── */}
       <div className="flex flex-wrap gap-x-5 gap-y-2 text-[11px] font-mono text-zinc-500 border-t border-[#1e2435] pt-3">
-        {[
-          { color: "#7c3aed", label: "Root / Program" },
-          { color: "#059669", label: "FunctionDecl" },
-          { color: "#0891b2", label: "Import / Literal" },
-          { color: "#d97706", label: "IfStatement" },
-          { color: "#dc2626", label: "ThrowStatement" },
-          { color: "#2563eb", label: "AssignExpr" },
-        ].map(l => (
+        {legend.map(l => (
           <span key={l.label} className="flex items-center space-x-1.5">
             <span className="w-3 h-3 rounded-sm inline-block border"
               style={{ background: l.color + "30", borderColor: l.color }} />
@@ -486,6 +813,7 @@ export default function AstGraphVisualizer() {
           <span className="text-purple-400">——— selected</span>
         </span>
       </div>
+    </div>
     </div>
   );
 }
