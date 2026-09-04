@@ -9,12 +9,13 @@ from dataclasses import dataclass, field
 class ResourceSpec:
     """One acquire → release pair."""
 
-    # Acquire API fully-qualified or simple name (matched against Call func)
+    # Acquire API canonical dotted name (matched against resolved call names)
     # Examples: "open", "socket.socket", "tempfile.NamedTemporaryFile", "sqlite3.connect"
     acquire: str
-    # Release method name (called as <handle>.method())
-    # Examples: "close", "release", "disconnect", "__exit__"
+    # Primary release method name (called as <handle>.method())
     release: str = "close"
+    # Additional release methods that count (e.g. Popen: wait, kill, terminate)
+    alt_releases: list[str] = field(default_factory=list)
     # Kind: "call" = function call acquire, "method" = release is method on handle
     kind: str = "call"
 
@@ -24,8 +25,15 @@ class ResourceSpec:
     transfer_via_calls: list[str] = field(default_factory=list)
 
     def matches_acquire(self, call_name: str) -> bool:
-        """Simple match: exact or suffix (so socket.socket matches 'socket.socket' and 'socket')."""
-        return call_name == self.acquire or call_name.endswith("." + self.acquire) or self.acquire.endswith("." + call_name)
+        """Canonical or suffix match (canonical names come from import resolution)."""
+        return (
+            call_name == self.acquire
+            or call_name.endswith("." + self.acquire)
+            or self.acquire.endswith("." + call_name)
+        )
+
+    def is_release_method(self, method: str) -> bool:
+        return method == self.release or method in self.alt_releases
 
 
 @dataclass
@@ -44,15 +52,38 @@ class CodeGateConfig:
     def default(cls) -> "CodeGateConfig":
         return cls(
             resources=[
+                # ── files ──────────────────────────────────────────────
                 ResourceSpec(acquire="open", release="close"),
-                ResourceSpec(acquire="socket.socket", release="close"),
-                ResourceSpec(acquire="socket.create_connection", release="close"),
+                ResourceSpec(acquire="io.open", release="close"),
                 ResourceSpec(acquire="tempfile.NamedTemporaryFile", release="close"),
                 ResourceSpec(acquire="tempfile.TemporaryFile", release="close"),
+                ResourceSpec(acquire="tempfile.TemporaryDirectory", release="cleanup"),
+                # ── sockets / network ──────────────────────────────────
+                ResourceSpec(acquire="socket.socket", release="close"),
+                ResourceSpec(acquire="socket.create_connection", release="close"),
+                ResourceSpec(acquire="socket.socketpair", release="close"),
+                # ── databases ──────────────────────────────────────────
                 ResourceSpec(acquire="sqlite3.connect", release="close"),
-                ResourceSpec(acquire="open", release="close", transfer_via_calls=[]),
-                # Generic file-like: io.open
-                ResourceSpec(acquire="io.open", release="close"),
+                ResourceSpec(acquire="psycopg2.connect", release="close"),
+                ResourceSpec(acquire="psycopg.connect", release="close"),
+                ResourceSpec(acquire="pymysql.connect", release="close"),
+                ResourceSpec(acquire="mysql.connector.connect", release="close"),
+                ResourceSpec(acquire="pymongo.MongoClient", release="close"),
+                # ── http clients ───────────────────────────────────────
+                ResourceSpec(acquire="requests.Session", release="close"),
+                ResourceSpec(acquire="httpx.Client", release="close"),
+                ResourceSpec(acquire="httpx.AsyncClient", release="aclose"),
+                # ── processes ──────────────────────────────────────────
+                ResourceSpec(
+                    acquire="subprocess.Popen",
+                    release="wait",
+                    alt_releases=["kill", "terminate", "poll"],
+                ),
+                ResourceSpec(
+                    acquire="multiprocessing.Process",
+                    release="join",
+                    alt_releases=["terminate", "kill"],
+                ),
             ]
         )
 

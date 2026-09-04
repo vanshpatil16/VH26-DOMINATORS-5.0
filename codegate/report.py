@@ -1,4 +1,11 @@
-"""Reporting and CFG visualization helpers for CodeGate."""
+"""Friendly terminal reporting for CodeGate.
+
+Design goals:
+- Show only what matters (leaking function's CFG by default)
+- Human-readable paths:  open(path) → f.read() → return None
+- if/else tree graph instead of raw block/edge dumps
+- Clear fix suggestion
+"""
 
 from __future__ import annotations
 
@@ -17,9 +24,6 @@ class Colors:
     RESET = "\033[0m"
     BOLD = "\033[1m"
     DIM = "\033[2m"
-    UNDERLINE = "\033[4m"
-
-    # Standard colors
     RED = "\033[91m"
     GREEN = "\033[92m"
     YELLOW = "\033[93m"
@@ -29,10 +33,10 @@ class Colors:
     WHITE = "\033[97m"
     GRAY = "\033[90m"
 
-    # Backgrounds
-    BG_RED = "\033[41m\033[97m"
-    BG_GREEN = "\033[42m\033[30m"
-    BG_CYAN = "\033[46m\033[30m"
+
+class _NoColors:
+    RESET = BOLD = DIM = RED = GREEN = YELLOW = BLUE = ""
+    MAGENTA = CYAN = WHITE = GRAY = ""
 
 
 def should_use_color(force_color: bool = False, no_color: bool = False) -> bool:
@@ -43,45 +47,111 @@ def should_use_color(force_color: bool = False, no_color: bool = False) -> bool:
     return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
 
+# ---------------------------------------------------------------------------
+# small helpers
+# ---------------------------------------------------------------------------
+
+def _stmt_src(stmt: ast.AST) -> str:
+    try:
+        return ast.unparse(stmt)
+    except Exception:
+        return str(stmt)
+
+
+def _short(s: str, n: int) -> str:
+    if len(s) <= n:
+        return s
+    return s[: n - 1] + "…"
+
+
+def _path_summary(stmts: list[str], max_items: int = 5, item_w: int = 34) -> str:
+    """open(path) → f.read() → return None   (compact arrow summary)"""
+    if not stmts:
+        return ""
+    parts = [_short(s.splitlines()[0], item_w) for s in stmts[:max_items]]
+    if len(stmts) > max_items:
+        parts.append("…")
+    return " → ".join(parts)
+
+
+def _branch_labels(exits) -> list[Optional[str]]:
+    """Label each exit edge as TRUE/FALSE when complementary, else the condition."""
+    if len(exits) == 2:
+        a, b = exits
+        if a.exitcase is not None and b.exitcase is not None:
+            try:
+                ta, tb = ast.unparse(a.exitcase), ast.unparse(b.exitcase)
+            except Exception:
+                ta = tb = ""
+            neg_a = tb == f"not {ta}" or tb == f"not ({ta})"
+            neg_b = ta == f"not {tb}" or ta == f"not ({tb})"
+            if neg_a:
+                return ["TRUE", "FALSE"]
+            if neg_b:
+                return ["FALSE", "TRUE"]
+    labels: list[Optional[str]] = []
+    for e in exits:
+        ec = e.exitcase
+        if ec is None:
+            labels.append(None)
+        elif isinstance(ec, ast.Constant):
+            labels.append("TRUE" if ec.value else "FALSE")
+        else:
+            try:
+                labels.append("if " + ast.unparse(ec))
+            except Exception:
+                labels.append(None)
+    return labels
+
+
+# ---------------------------------------------------------------------------
+# friendly leak report
+# ---------------------------------------------------------------------------
+
 def format_text(leaks: list[Leak], use_color: bool = True) -> str:
-    """Format leak findings into a colorized human-readable terminal report."""
     c = Colors if use_color else _NoColors()
     if not leaks:
         return f"{c.BOLD}{c.GREEN}✓ No resource leaks detected.{c.RESET}"
 
     lines = [
-        f"{c.BOLD}{c.RED}✗ Found {len(leaks)} resource leak(s):{c.RESET}",
-        f"{c.GRAY}{'─' * 60}{c.RESET}",
+        "",
+        f"{c.BOLD}{c.RED}{'█'*3} CODEGATE FOUND {len(leaks)} LEAK{'S' if len(leaks)>1 else ''} {'█'*3}{c.RESET}",
+        "",
     ]
+    for lk in leaks:
+        lines.append(f"{c.BOLD}{c.RED}┌─ 🔴 LEAK{c.RESET}  {c.BOLD}{lk.file}:{lk.acquire_line}{c.RESET}"
+                     f" {c.GRAY}· in {lk.func}(){c.RESET}")
+        lines.append(f"{c.RED}│{c.RESET}")
+        lines.append(f"{c.RED}│{c.RESET}  {c.BOLD}'{lk.var}' = {lk.acquire}(...){c.RESET}"
+                     f" {c.GRAY}— is not guaranteed to be {lk.release}()'d{c.RESET}")
 
-    for i, lk in enumerate(leaks, 1):
+        # leaking path (statement-level summary)
+        if lk.path_sources:
+            for srcs in lk.path_sources[:1]:
+                lines.append(f"{c.RED}│{c.RESET}  {c.RED}✗ leaking path:{c.RESET}  {_path_summary(srcs)}")
+                lines.append(f"{c.RED}│{c.RESET}                      {c.GRAY}└─ '{lk.var}' never closed here{c.RESET}")
+        # safe path for contrast
+        if lk.safe_path_sources:
+            for srcs in lk.safe_path_sources[:1]:
+                lines.append(f"{c.RED}│{c.RESET}  {c.GREEN}✓ safe path:    {c.RESET}  {_path_summary(srcs)}")
+
+        if lk.exception_note:
+            lines.append(f"{c.RED}│{c.RESET}  {c.YELLOW}⚠ {lk.exception_note}{c.RESET}")
+
+        lines.append(f"{c.RED}│{c.RESET}")
         lines.append(
-            f" {c.BOLD}{c.WHITE}[{i}]{c.RESET} {c.BOLD}{c.CYAN}{lk.file}:{lk.acquire_line}{c.RESET} "
-            f"in {c.BOLD}{c.MAGENTA}{lk.func}(){c.RESET}"
+            f"{c.RED}│{c.RESET}  {c.BOLD}{c.GREEN}💡 FIX:{c.RESET} use a context manager, or close on every branch:\n"
+            f"{c.RED}│{c.RESET}       with {lk.acquire}(...) as {lk.var}:{c.GRAY}   # closes automatically{c.RESET}\n"
+            f"{c.RED}│{c.RESET}           ...{c.GRAY}   # or: try/finally with {lk.var}.{lk.release}(){c.RESET}"
         )
-        lines.append(f"     {c.RED}🚨 {lk.message}{c.RESET}")
-        lines.append(
-            f"     {c.GRAY}Resource:{c.RESET} {c.BOLD}{c.YELLOW}var={lk.var}{c.RESET}  "
-            f"{c.GRAY}Acquire:{c.RESET} {c.CYAN}{lk.acquire}(){c.RESET}  "
-            f"{c.GRAY}Release:{c.RESET} {c.GREEN}{lk.release}(){c.RESET}"
-        )
-
-        if lk.paths:
-            lines.append(f"     {c.BOLD}{c.RED}Leaking Path(s):{c.RESET}")
-            for path in lk.paths:
-                path_str = " ──► ".join(f"Block {b}" for b in path)
-                lines.append(f"       • {c.RED}{path_str}{c.RESET}")
-
-        if lk.safe_paths:
-            lines.append(f"     {c.BOLD}{c.GREEN}Safe Path(s):{c.RESET}")
-            for path in lk.safe_paths:
-                path_str = " ──► ".join(f"Block {b}" for b in path)
-                lines.append(f"       • {c.GREEN}{path_str}{c.RESET}")
-
-        lines.append(f"{c.GRAY}{'─' * 60}{c.RESET}")
-
+        lines.append(f"{c.RED}└{'─'*60}{c.RESET}")
+        lines.append("")
     return "\n".join(lines)
 
+
+# ---------------------------------------------------------------------------
+# if/else tree CFG renderer
+# ---------------------------------------------------------------------------
 
 def format_cfg(
     fcfg,
@@ -90,102 +160,99 @@ def format_cfg(
     leaks: Optional[list[Leak]] = None,
     use_color: bool = True,
 ) -> str:
-    """Format a single function CFG graph into a visual ASCII/ANSI tree representation."""
+    """Render the CFG as an if/else tree humans can read at a glance.
+
+    Example:
+        ●─ [3] line 4  ← LEAK: exits without closing 'f'
+        │     f = open(path)
+        │     data = f.read()
+        │     ├── TRUE ─ [4] line 9  ← LEAK
+        │     │     return None
+        │     └── FALSE ─ [5] line 11  ✓ closed
+    """
     c = Colors if use_color else _NoColors()
     blocks = get_all_blocks_filtered(fcfg)
     if not blocks:
-        return f"{c.GRAY}(Empty CFG for {func_name}){c.RESET}"
+        return f"{c.GRAY}(empty CFG for {func_name}){c.RESET}"
 
-    # Collect leaking & safe block IDs for highlighting
-    leaking_blocks: set[int] = set()
-    safe_blocks: set[int] = set()
-    if leaks:
-        for lk in leaks:
-            if lk.func == func_name or func_name == "<module>":
-                for path in lk.paths:
-                    leaking_blocks.update(path)
-                for path in lk.safe_paths:
-                    safe_blocks.update(path)
+    entry = fcfg.entryblock if fcfg.entryblock in blocks else blocks[0]
+    leaking_ids: set[int] = set()
+    safe_ids: set[int] = set()
+    for lk in (leaks or []):
+        for p in lk.paths:
+            leaking_ids.update(p)
+        for p in lk.safe_paths:
+            safe_ids.update(p)
 
-    header = f" FUNCTION CFG: {func_name}() [{file_path}] "
-    box_width = max(len(header) + 4, 64)
-    lines = [
-        "",
-        f"{c.BOLD}{c.CYAN}┌{'─' * box_width}┐{c.RESET}",
-        f"{c.BOLD}{c.CYAN}│ {header.ljust(box_width - 2)} │{c.RESET}",
-        f"{c.BOLD}{c.CYAN}└{'─' * box_width}┘{c.RESET}",
-    ]
+    out: list[str] = []
+    visited: set[int] = set()
 
-    for b in blocks:
-        block_id = b.id
-        line_no = b.at()
-        line_str = f"Line {line_no}" if line_no else "Entry/Exit"
+    def render(block, prefix: str, header: str, is_last: bool):
+        visited.add(block.id)
+        body_prefix = prefix + ("│   " if not is_last else "    ") if prefix else "    "
 
-        # Highlight tag
-        if block_id in leaking_blocks:
-            tag = f" {c.BOLD}{c.RED}🔴 [LEAKING PATH]{c.RESET}"
-            block_color = c.RED
-        elif block_id in safe_blocks:
-            tag = f" {c.BOLD}{c.GREEN}🟢 [SAFE PATH]{c.RESET}"
-            block_color = c.GREEN
-        elif b is fcfg.entryblock:
-            tag = f" {c.BOLD}{c.CYAN}🚀 [ENTRY]{c.RESET}"
-            block_color = c.CYAN
+        # header
+        at = block.at()
+        loc = f"line {at}" if at else "entry"
+        if block.id in leaking_ids:
+            tag = f"  {c.BOLD}{c.RED}← LEAK: exits without closing{c.RESET}"
+        elif block.id in safe_ids:
+            tag = f"  {c.GREEN}✓ resource closed{c.RESET}"
+        elif block is entry:
+            tag = f"  {c.CYAN}(start){c.RESET}"
         else:
             tag = ""
-            block_color = c.YELLOW
+        out.append(f"{prefix}{header}{c.BOLD}{c.YELLOW}[{block.id}]{c.RESET} {c.GRAY}{loc}{c.RESET}{tag}")
 
-        lines.append(f"{c.GRAY}  │{c.RESET}")
-        lines.append(
-            f"{c.GRAY}  ├─►{c.RESET} {c.BOLD}{block_color}[Block {block_id}]{c.RESET} "
-            f"{c.GRAY}({line_str}){c.RESET}{tag}"
-        )
+        # statements
+        for s in block.statements:
+            src = _short(_stmt_src(s).splitlines()[0], 68)
+            marker = f" {c.RED}🔴{c.RESET}" if block.id in leaking_ids else (
+                     f" {c.GREEN}🟢{c.RESET}" if block.id in safe_ids else "")
+            out.append(f"{body_prefix}{c.CYAN}{src}{c.RESET}{marker}")
 
-        # Render statements inside block
-        if b.statements:
-            lines.append(f"{c.GRAY}  │   │  {c.DIM}Statements:{c.RESET}")
-            for idx, stmt in enumerate(b.statements, 1):
-                try:
-                    stmt_code = ast.unparse(stmt).splitlines()[0]
-                except Exception:
-                    stmt_code = str(stmt)
-                if len(stmt_code) > 70:
-                    stmt_code = stmt_code[:67] + "..."
-                lines.append(
-                    f"{c.GRAY}  │   │    {idx}.{c.RESET} {c.CYAN}{stmt_code}{c.RESET}"
-                )
+        exits = block.exits
+        labels = _branch_labels(exits)
+        if not exits:
+            out.append(f"{body_prefix}{c.WHITE}└─ EXIT{c.RESET}")
+            return
+        for i, e in enumerate(exits):
+            last = i == len(exits) - 1
+            econn = "└─ " if last else "├─ "
+            lbl = labels[i]
+            if e.target.id in visited:
+                arrow = f"{lbl} ─► " if lbl else "──► "
+                out.append(f"{body_prefix}{econn}{c.BOLD}{c.MAGENTA}{arrow}{c.RESET}"
+                           f"{c.YELLOW}back to Block {e.target.id} (loop){c.RESET}")
+                continue
+            # merge branch label into the child's header connector
+            if lbl:
+                child_header = f"{econn}{c.BOLD}{c.MAGENTA}{lbl}{c.RESET} ─ "
+            else:
+                child_header = econn
+            render(e.target, body_prefix, child_header, last)
 
-        # Render exits / edges
-        if b.exits:
-            lines.append(f"{c.GRAY}  │   │  {c.DIM}Exits:{c.RESET}")
-            for link in b.exits:
-                target_id = link.target.id
-                cond_str = ""
-                if link.exitcase is not None:
-                    try:
-                        cond_code = ast.unparse(link.exitcase)
-                    except Exception:
-                        cond_code = str(link.exitcase)
-                    cond_str = f" {c.GRAY}[Condition: {c.MAGENTA}{cond_code}{c.GRAY}]{c.RESET}"
-                else:
-                    cond_str = f" {c.GRAY}[Unconditional]{c.RESET}"
+    # header
+    params = ""
+    for s in entry.statements:
+        if isinstance(s, ast.FunctionDef):
+            params = _sig(s)
+            break
+    title = f"{func_name}({params})" if func_name != "<module>" else "<module level>"
+    out.append("")
+    out.append(f"{c.BOLD}{c.CYAN}  ▼ Control flow of {title}{c.RESET} {c.GRAY}({file_path}){c.RESET}")
+    out.append(f"{c.GRAY}  {'─'*60}{c.RESET}")
+    render(entry, "  ", "●─ ", True)
+    out.append("")
+    return "\n".join(out)
 
-                target_tag = ""
-                if target_id in leaking_blocks:
-                    target_tag = f" {c.RED}🔴{c.RESET}"
-                elif target_id in safe_blocks:
-                    target_tag = f" {c.GREEN}🟢{c.RESET}"
 
-                lines.append(
-                    f"{c.GRAY}  │   └───►{c.RESET} {c.BOLD}{c.YELLOW}Block {target_id}{c.RESET}{cond_str}{target_tag}"
-                )
-        else:
-            lines.append(
-                f"{c.GRAY}  │   └───►{c.RESET} {c.BOLD}{c.WHITE}(Return / Exit){c.RESET}"
-            )
-
-    lines.append(f"{c.GRAY}  └{'─' * (box_width - 2)}{c.RESET}\n")
-    return "\n".join(lines)
+def _sig(fn: ast.FunctionDef) -> str:
+    try:
+        args = ast.unparse(fn.args)
+    except Exception:
+        args = ""
+    return args
 
 
 def format_all_cfgs(
@@ -193,14 +260,20 @@ def format_all_cfgs(
     file_path: str = "",
     leaks: Optional[list[Leak]] = None,
     use_color: bool = True,
+    only_leaking: bool = False,
 ) -> str:
-    """Format all function CFGs in a root CFG module into string representation."""
+    """Render CFGs. By default only functions involved in leaks (less noise)."""
+    leak_funcs = {lk.func for lk in (leaks or [])} if only_leaking else None
     out: list[str] = []
     if hasattr(cfg_root, "functioncfgs") and cfg_root.functioncfgs:
         for (_, func_name), fcfg in cfg_root.functioncfgs.items():
-            out.append(format_cfg(fcfg, func_name=func_name, file_path=file_path, leaks=leaks, use_color=use_color))
-    elif cfg_root.entryblock:
-        out.append(format_cfg(cfg_root, func_name="<module>", file_path=file_path, leaks=leaks, use_color=use_color))
+            if leak_funcs is not None and func_name not in leak_funcs:
+                continue
+            out.append(format_cfg(fcfg, func_name=func_name, file_path=file_path,
+                                  leaks=leaks, use_color=use_color))
+    elif cfg_root.entryblock is not None:
+        out.append(format_cfg(cfg_root, func_name="<module>", file_path=file_path,
+                              leaks=leaks, use_color=use_color))
     return "\n".join(out)
 
 
@@ -213,23 +286,3 @@ def write_report(leaks: list[Leak], out: Path | None = None, fmt: str = "text", 
     if out:
         Path(out).write_text(text, encoding="utf-8")
     return text
-
-
-class _NoColors:
-    """Fallback when colors are disabled."""
-    RESET = ""
-    BOLD = ""
-    DIM = ""
-    UNDERLINE = ""
-    RED = ""
-    GREEN = ""
-    YELLOW = ""
-    BLUE = ""
-    MAGENTA = ""
-    CYAN = ""
-    WHITE = ""
-    GRAY = ""
-    BG_RED = ""
-    BG_GREEN = ""
-    BG_CYAN = ""
-

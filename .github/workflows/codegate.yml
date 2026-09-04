@@ -1,0 +1,52 @@
+name: CodeGate
+
+# Preventive pipeline: analyze all Python code on every push and PR.
+# Findings appear as inline annotations on the PR diff; the job fails when
+# path-sensitive resource leaks exist (exception risks are warnings).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  codegate:
+    name: Resource-leak analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # full history so --changed-only can diff against the base branch
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CodeGate + analyzer deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install python-scalpel ruff semgrep
+
+      - name: Run CodeGate (all files, GitHub annotations)
+        id: codegate
+        run: |
+          python -m codegate.ci . --ensemble | tee codegate-report.txt
+        continue-on-error: false
+
+      - name: Run CodeGate on changed files only (PR diff annotations)
+        if: github.event_name == 'pull_request'
+        run: |
+          python -m codegate.ci --changed-only --base origin/${{ github.base_ref }}
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codegate-report
+          path: codegate-report.txt
+          if-no-files-found: ignore

@@ -13,10 +13,31 @@ import ast
 import sys
 from pathlib import Path
 
-# Ensure Scalpel/src is on path
-_scalpel_src = Path(__file__).resolve().parents[1] / "Scalpel" / "src"
-if str(_scalpel_src) not in sys.path:
-    sys.path.insert(0, str(_scalpel_src))
+# Locate Scalpel: prefer pip-installed; else find local checkout in known spots.
+def _ensure_scalpel_importable() -> None:
+    try:
+        import scalpel  # noqa: F401
+        return
+    except ImportError:
+        pass
+    here = Path(__file__).resolve().parents[1]
+    candidates = [
+        here / "Scalpel" / "src",
+        here / "frontend" / "Scalpel" / "src",
+        here / "Scalpel",
+        here / "frontend" / "Scalpel",
+    ]
+    for cand in candidates:
+        if (cand / "scalpel").is_dir():
+            sys.path.insert(0, str(cand))
+            return
+    raise ImportError(
+        "Scalpel not found. Install it: pip install python-scalpel "
+        "(or place a checkout at ./Scalpel/src)"
+    )
+
+
+_ensure_scalpel_importable()
 
 from scalpel.cfg.builder import CFGBuilder  # noqa: E402
 from scalpel.cfg.model import Block, CFG  # noqa: E402

@@ -1,0 +1,76 @@
+rules:
+  # ── files ──────────────────────────────────────────────────────────
+  - id: codegate-unguarded-open
+    languages: [python]
+    severity: WARNING
+    message: "'$X' acquired via open() without a context manager — CodeGate will verify cleanup on all paths"
+    patterns:
+      - pattern-either:
+          - pattern: $X = open(...)
+          - pattern: $X = io.open(...)
+  - id: codegate-unguarded-tempfile
+    languages: [python]
+    severity: WARNING
+    message: "'$X' tempfile resource acquired without a context manager"
+    patterns:
+      - pattern-either:
+          - pattern: $X = tempfile.NamedTemporaryFile(...)
+          - pattern: $X = tempfile.TemporaryFile(...)
+          - pattern: $X = tempfile.TemporaryDirectory(...)
+
+  # ── sockets ────────────────────────────────────────────────────────
+  - id: codegate-unguarded-socket
+    languages: [python]
+    severity: WARNING
+    message: "'$X' socket acquired without a context manager"
+    patterns:
+      - pattern-either:
+          - pattern: $X = socket.socket(...)
+          - pattern: $X = socket.create_connection(...)
+          - pattern: $X = socket.socketpair(...)
+
+  # ── databases (concrete) ───────────────────────────────────────────
+  - id: codegate-unguarded-db-connect
+    languages: [python]
+    severity: WARNING
+    message: "'$X' database connection acquired without a context manager"
+    patterns:
+      - pattern-either:
+          - pattern: $X = sqlite3.connect(...)
+          - pattern: $X = psycopg2.connect(...)
+          - pattern: $X = psycopg.connect(...)
+          - pattern: $X = pymysql.connect(...)
+          - pattern: $X = mysql.connector.connect(...)
+          - pattern: $X = pymongo.MongoClient(...)
+
+  # ── databases (aliased imports: import sqlite3 as db) ─────────────
+  - id: codegate-unguarded-aliased-connect
+    languages: [python]
+    severity: WARNING
+    message: "'$X' = $MOD.connect(...) — possibly a database connection; CodeGate resolves the alias and verifies"
+    patterns:
+      - pattern: $X = $MOD.connect(...)
+      - metavariable-regex:
+          metavariable: $MOD
+          regex: ^(?!self$|cls$|super$|request$|session$|cache$|redis$)[a-z_]+$
+
+  # ── http clients ───────────────────────────────────────────────────
+  - id: codegate-unguarded-http-client
+    languages: [python]
+    severity: WARNING
+    message: "'$X' HTTP client acquired without a context manager"
+    patterns:
+      - pattern-either:
+          - pattern: $X = requests.Session(...)
+          - pattern: $X = httpx.Client(...)
+          - pattern: $X = httpx.AsyncClient(...)
+
+  # ── processes ──────────────────────────────────────────────────────
+  - id: codegate-unguarded-process
+    languages: [python]
+    severity: WARNING
+    message: "'$X' subprocess/process acquired without guaranteed wait/kill/terminate"
+    patterns:
+      - pattern-either:
+          - pattern: $X = subprocess.Popen(...)
+          - pattern: $X = multiprocessing.Process(...)

@@ -33,6 +33,16 @@ def _collect_py_files(targets: list[str]) -> list[Path]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    args_list = list(argv) if argv is not None else sys.argv[1:]
+
+    # Subcommands handled by dedicated modules (kept positional-compatible)
+    if args_list and args_list[0] == "ci":
+        from .ci import main as ci_main
+        return ci_main(args_list[1:])
+    if args_list and args_list[0] == "install-hook":
+        from .ci import install_hook
+        return install_hook()
+
     if hasattr(sys.stdout, "reconfigure"):
         try:
             sys.stdout.reconfigure(encoding="utf-8")
@@ -47,12 +57,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="codegate", description="CodeGate: Python resource-leak detector")
     parser.add_argument("targets", nargs="+", help="Python files or directories to analyze")
     parser.add_argument("--json", action="store_true", help="Output JSON")
-    parser.add_argument("--cfg", action="store_true", help="Display full Control Flow Graph (CFG) graph in terminal")
+    parser.add_argument("--cfg", action="store_true", help="Show CFG tree for leaking functions")
+    parser.add_argument("--cfg-all", action="store_true", help="Show CFG tree for ALL functions")
     parser.add_argument("--color", action="store_true", help="Force color output")
     parser.add_argument("--no-color", action="store_true", help="Disable color output")
     parser.add_argument("--fix", action="store_true", help="Autofix leaks in place (with -> with)")
     parser.add_argument("--fix-dry", action="store_true", help="Show fixed code without writing")
     parser.add_argument("--fix-out", type=str, default=None, help="Write fixed files to this directory (mirror)")
+    parser.add_argument("--ensemble", action="store_true", help="Ensemble mode: ruff pre-filter + CodeGate CFG verification")
     parser.add_argument("--config", type=str, default=None, help="Config JSON file (optional)")
     parser.add_argument("--quiet", action="store_true", help="Only exit code")
 
@@ -73,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     all_leaks = []
+    ensemble_reports: list = []
     any_error = False
 
     for f in files:
@@ -91,10 +104,24 @@ def main(argv: list[str] | None = None) -> int:
 
         all_leaks.extend(leaks)
 
+        if args.ensemble:
+            from .ensemble import run_ensemble
+            ens = run_ensemble(f.read_text(encoding="utf-8"), filename=str(f), config=config)
+            if not args.quiet and not args.json:
+                cc = ens["counts"]
+                print(f"  ensemble: {len(ens['verified'])} verified — "
+                      f"{c.RED}{cc['confirmed_path_leak']} path leaks{c.RESET}, "
+                      f"{c.YELLOW}{cc['confirmed_exception_unsafe']} exception-unsafe{c.RESET}, "
+                      f"{c.GREEN}{cc['refuted_safe']} refuted{c.RESET} "
+                      f"(noise −{ens['noiseReductionPct']}%)")
+            ensemble_reports.append(ens)
+
         if not args.quiet and not args.json:
             # Print CFG graph if requested
-            if args.cfg:
-                print(format_all_cfgs(cfg_root, file_path=str(f), leaks=leaks, use_color=use_color))
+            if args.cfg or args.cfg_all:
+                print(format_all_cfgs(cfg_root, file_path=str(f), leaks=leaks,
+                                      use_color=use_color,
+                                      only_leaking=not args.cfg_all))
 
             if leaks:
                 print(format_text(leaks, use_color=use_color))
@@ -127,7 +154,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.json:
         out = format_json(all_leaks)
-        print(out)
+        if ensemble_reports:
+            import json as _json
+            combined = {"leaks": _json.loads(out), "ensemble": ensemble_reports}
+            print(_json.dumps(combined, indent=2))
+        else:
+            print(out)
 
     return 1 if all_leaks else 0
 

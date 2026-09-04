@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from .config import CodeGateConfig, ResourceSpec
+from .imports import build_import_map, resolve_call_name
 from .scalpel_patch import build_cfg, get_all_blocks_filtered
 
 
@@ -27,6 +28,11 @@ class Leak:
     kind: str = "path"
     paths: list[list[int]] = field(default_factory=list)  # block id paths that leak
     safe_paths: list[list[int]] = field(default_factory=list)
+    # Human-readable path summaries (statement sources along each path)
+    path_sources: list[list[str]] = field(default_factory=list)
+    safe_path_sources: list[list[str]] = field(default_factory=list)
+    # Short exception-risk explanation (rendered separately from message)
+    exception_note: str = ""
 
     def to_dict(self):
         return {
@@ -42,6 +48,7 @@ class Leak:
             "kind": self.kind,
             "leaking_paths": self.paths,
             "safe_paths": self.safe_paths,
+            "exception_note": self.exception_note,
         }
 
 
@@ -66,20 +73,32 @@ def _call_name(node: ast.Call) -> Optional[str]:
     return None
 
 
-def _is_with_acquire(stmt: ast.With, resources: list[ResourceSpec]) -> bool:
-    """With(items=[withitem(context_expr=Call)]) — if that Call matches a resource, it's safe."""
+def _is_with_acquire(stmt: ast.With, resources: list[ResourceSpec], import_map: dict[str, str] | None = None) -> bool:
+    """With(items=[withitem(context_expr=Call)]) — if that Call matches a tracked
+    resource, or is contextlib.closing(...) (which releases anything on exit), it's safe."""
     for item in stmt.items:
         expr = item.context_expr
         if isinstance(expr, ast.Call):
             name = _call_name(expr)
-            if name and any(r.matches_acquire(name) for r in resources):
+            if not name:
+                continue
+            resolved = resolve_call_name(name, import_map)
+            if any(r.matches_acquire(resolved) for r in resources):
+                return True
+            # contextlib.closing(obj) releases obj.__exit__ at with-exit
+            if resolved == "contextlib.closing" or resolved.endswith(".closing"):
                 return True
     return False
 
 
-def _get_acquire_info(stmt: ast.AST, resources: list[ResourceSpec]) -> Optional[tuple[str, str, str]]:
+def _get_acquire_info(
+    stmt: ast.AST,
+    resources: list[ResourceSpec],
+    import_map: dict[str, str] | None = None,
+) -> Optional[tuple[str, str, str]]:
     """
-    If stmt is   var = <acquire>(...)   matching resources, return (var, acquire_name, release).
+    If stmt is   var = <acquire>(...)   matching resources, return (var, canonical_acquire, release).
+    Canonical name is import-resolved (e.g. db.connect -> sqlite3.connect).
     Returns None otherwise.
     """
     if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
@@ -87,33 +106,47 @@ def _get_acquire_info(stmt: ast.AST, resources: list[ResourceSpec]) -> Optional[
         if isinstance(stmt.value, ast.Call):
             name = _call_name(stmt.value)
             if name:
+                resolved = resolve_call_name(name, import_map)
                 for r in resources:
-                    if r.matches_acquire(name):
-                        return (var, name, r.release)
+                    if r.matches_acquire(resolved):
+                        return (var, resolved, r.release)
     # also AnnAssign  x: t = open()
     if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name) and isinstance(stmt.value, ast.Call):
         var = stmt.target.id
         name = _call_name(stmt.value)
         if name:
+            resolved = resolve_call_name(name, import_map)
             for r in resources:
-                if r.matches_acquire(name):
-                    return (var, name, r.release)
+                if r.matches_acquire(resolved):
+                    return (var, resolved, r.release)
     return None
 
 
-def _is_release(stmt: ast.AST, aliases: set[str], release_name: str = "close") -> Optional[str]:
+def _is_release(stmt: ast.AST, aliases: set[str], spec: ResourceSpec | None = None,
+                release_name: str = "close") -> Optional[str]:
     """
     If stmt is   <alias>.release(...)   where alias in aliases, return alias name.
-    Handles both Expr(Call) and standalone Call inside Expr.
-    Also handles Assign where RHS is close? No.
+    Checks the primary release name plus alt_releases (e.g. Popen.wait/kill).
     """
-    # Most closes are Expr(value=Call(func=Attribute(value=Name(id), attr=release)))
+    method = None
+    call = None
     if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
         call = stmt.value
-        if isinstance(call.func, ast.Attribute) and call.func.attr == release_name:
-            if isinstance(call.func.value, ast.Name) and call.func.value.id in aliases:
-                return call.func.value.id
-    # Also handle Assign that discards? Not needed.
+        if isinstance(call.func, ast.Attribute):
+            method = call.func.attr
+    elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Await) \
+            and isinstance(stmt.value.value, ast.Call) \
+            and isinstance(stmt.value.value.func, ast.Attribute):
+        # await httpx_client.aclose()
+        call = stmt.value.value
+        method = call.func.attr  # type: ignore[union-attr]
+    if method is None or call is None:
+        return None
+    valid = [release_name]
+    if spec is not None:
+        valid += spec.alt_releases
+    if method in valid and isinstance(call.func.value, ast.Name) and call.func.value.id in aliases:
+        return call.func.value.id
     return None
 
 
@@ -135,7 +168,8 @@ def _find_aliases_for_resource(all_blocks, resource_var: str, resource_res_id: i
     return set()
 
 
-def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateConfig) -> list[Leak]:
+def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateConfig,
+                         import_map: dict[str, str] | None = None) -> list[Leak]:
     """Analyze a single function CFG, return leaks."""
     resources = config.resources
     blocks = get_all_blocks_filtered(fcfg)
@@ -177,16 +211,30 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
         local_leaks: list[int] = []  # res_ids leaked inside this block
 
         for stmt in block.statements:
-            # Check if this block is a `with` acquire — then treat as always safe: acquire and immediate release scope
-            # For with, we don't push live; we consider it closed at with-exit.
-            # Simplistic: if stmt is With and it acquires tracked resource, skip its body? But body is in next block(s).
-            # Actually With's scope is handled by not creating live entry at all.
-            if isinstance(stmt, ast.With) and config.with_is_safe and _is_with_acquire(stmt, resources):
+            # `with <tracked-resource>(...) as h:` — context-managed, no live entry.
+            if isinstance(stmt, ast.With) and config.with_is_safe and _is_with_acquire(stmt, resources, import_map):
+                # Also: `with contextlib.closing(f):` releases an earlier-acquired `f`
+                for item in stmt.items:
+                    expr = item.context_expr
+                    if isinstance(expr, ast.Call):
+                        cname = resolve_call_name(_call_name(expr) or "", import_map)
+                        if cname == "contextlib.closing" or cname.endswith(".closing"):
+                            for a in expr.args:
+                                if isinstance(a, ast.Name) and a.id in new_live:
+                                    closed_res = new_live[a.id]
+                                    vars_to_remove = [v for v, r in list(new_live.items()) if r == closed_res]
+                                    for v in vars_to_remove:
+                                        del new_live[v]
                 # Skip — this resource is context-managed
                 continue
+            # `h = es.enter_context(<acquire>())` (ExitStack) — managed, skip live creation
+            if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call):
+                vname = resolve_call_name(_call_name(stmt.value) or "", import_map)
+                if vname.endswith(".enter_context") or vname == "contextlib.ExitStack.enter_context":
+                    continue
 
             # 1) Try to detect acquire: var = acquire(...)
-            acq = _get_acquire_info(stmt, resources)
+            acq = _get_acquire_info(stmt, resources, import_map)
             if acq:
                 var, acq_name, rel_name = acq
                 # If var already maps to a different live resource, that previous resource is leaked (overwritten before close)
@@ -314,16 +362,14 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
                             path_evidence[prev_res]["leaking"].append(list(path)+[block.id])
                         del new_live[lhs]
 
-            # 3) Release:   <handle>.close()
-            # Need to know release name per resource
-            # For each live resource, check if stmt releases an alias of it
-            # Collect releases to apply (need to avoid modifying dict during iteration)
+            # 3) Release:   <handle>.close() (or .wait/.kill/.cleanup per spec)
             to_close: set[int] = set()
             for var, res_id in list(new_live.items()):
                 # Find release name for this res_id
-                _, _, rel_name = new_res.get(res_id, ("?", "?", "close"))
+                _, acq_n, rel_name = new_res.get(res_id, ("?", "?", "close"))
+                spec = next((r for r in resources if r.matches_acquire(acq_n)), None)
                 alias_set = {v for v, r in new_live.items() if r == res_id}
-                if _is_release(stmt, alias_set, rel_name):
+                if _is_release(stmt, alias_set, spec, rel_name):
                     to_close.add(res_id)
             if to_close:
                 for res_id in to_close:
@@ -461,12 +507,30 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
 
     dfs(entry, {}, {}, [], set())
 
-    # Convert found_leaks dict to list, attach path evidence
+    # Convert found_leaks dict to list, attach path evidence + human-readable
+    # path summaries (statement sources along each path).
+    id2b = {b.id: b for b in blocks}
+
+    def _path_sources(path_ids: list[int]) -> list[str]:
+        out: list[str] = []
+        for bid in path_ids:
+            blk = id2b.get(bid)
+            if blk is None:
+                continue
+            for s in blk.statements:
+                try:
+                    out.append(ast.unparse(s))
+                except Exception:
+                    continue
+        return out
+
     result: list[Leak] = []
     for res_id, leak in found_leaks.items():
         ev = path_evidence.get(res_id, {"leaking": [], "safe": []})
         leak.paths = ev.get("leaking", [])
         leak.safe_paths = ev.get("safe", [])
+        leak.path_sources = [_path_sources(p) for p in leak.paths]
+        leak.safe_path_sources = [_path_sources(p) for p in leak.safe_paths]
         result.append(leak)
 
     # Deduplicate leaks by acquire line (multiple aliases same resource)
@@ -480,6 +544,8 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
             existing = by_line[lk.acquire_line]
             existing.paths.extend(lk.paths)
             existing.safe_paths.extend(lk.safe_paths)
+            existing.path_sources.extend(lk.path_sources)
+            existing.safe_path_sources.extend(lk.safe_path_sources)
 
     return list(by_line.values())
 
@@ -488,13 +554,15 @@ def analyze_source_with_cfg(source: str, filename: str = "<string>", config: Cod
     """Analyze Python source string and return (leaks, root_cfg)."""
     if config is None:
         config = CodeGateConfig.default()
+    # Build the import map once (aliased/relative imports -> canonical names)
+    import_map = build_import_map(ast.parse(source))
     cfg = build_cfg(source, name=filename)
     leaks: list[Leak] = []
 
     # Analyze each function cfg
     for (block_id, func_name), fcfg in cfg.functioncfgs.items():
         file_for_report = filename
-        func_leaks = analyze_function_cfg(fcfg, func_name, file_for_report, config)
+        func_leaks = analyze_function_cfg(fcfg, func_name, file_for_report, config, import_map)
         leaks.extend(func_leaks)
 
     if cfg.entryblock is not None:
@@ -503,13 +571,13 @@ def analyze_source_with_cfg(source: str, filename: str = "<string>", config: Cod
             for s in b.statements:
                 if isinstance(s, ast.FunctionDef):
                     continue
-                if _get_acquire_info(s, config.resources):
+                if _get_acquire_info(s, config.resources, import_map):
                     has_acquire_at_top = True
                     break
             if has_acquire_at_top:
                 break
         if has_acquire_at_top:
-            top_leaks = analyze_function_cfg(cfg, "<module>", filename, config)
+            top_leaks = analyze_function_cfg(cfg, "<module>", filename, config, import_map)
             leaks.extend(top_leaks)
 
     # HARDEN-3: exception-safety pass (may-throw calls leaking live resources)
@@ -620,6 +688,21 @@ def _exception_leak_candidates(
             fin_closes = _releases_var(n.finalbody) if n.finalbody else False
             if n.body:
                 try_regions.append((n.body[0].lineno, n.body[-1].end_lineno, has_handlers, fin_closes))
+        elif isinstance(n, (ast.With, ast.AsyncWith)):
+            # `with contextlib.closing(f):` DOES protect `f`: on unwinding,
+            # closing.__exit__ calls f.close(). Mark (with-entry .. with-exit)
+            # as a safe region for the wrapped var.
+            for item in n.items:
+                expr = item.context_expr
+                if isinstance(expr, ast.Call):
+                    fname = expr.func.attr if isinstance(expr.func, ast.Attribute) else (
+                        expr.func.id if isinstance(expr.func, ast.Name) else "")
+                    if fname == "closing":
+                        for a in expr.args:
+                            if isinstance(a, ast.Name) and (a.id == var or a.id in aliases):
+                                if n.body:
+                                    try_regions.append(
+                                        (n.lineno, n.body[-1].end_lineno, True, False))
         elif isinstance(n, ast.Call):
             calls.append(n)
         elif isinstance(n, ast.Assign) and len(n.targets) == 1 \
@@ -700,10 +783,9 @@ def _exception_leaks_for(
         bad_calls = _exception_leak_candidates(func, lk.acquire_line, lk.var, lk.release)
         if bad_calls:
             first_line, first_name = bad_calls[0]
-            lk.message += (
-                f" | EXCEPTION-PATH LEAK: if '{first_name}()' at line {first_line} raises, "
-                f"'{lk.var}' leaks (no enclosing try/finally or with). "
-                f"Wrap in try/finally or use 'with'."
+            lk.exception_note = (
+                f"Exception risk: if '{first_name}()' (line {first_line}) raises, "
+                f"'{lk.var}' leaks too — nothing catches the error before close."
             )
             lk.kind = "path+exception"
     return extra
@@ -724,6 +806,7 @@ def analyze_exception_safety(
         tree = ast.parse(source)
     except SyntaxError:
         return []
+    import_map = build_import_map(tree)
 
     # Collect all acquires per function from the desugared-free original AST
     new_leaks: list[Leak] = []
@@ -739,7 +822,7 @@ def analyze_exception_safety(
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         for n in _walk_own(node):
-            acq = _get_acquire_info(n, config.resources)
+            acq = _get_acquire_info(n, config.resources, import_map)
             if not acq:
                 continue
             var, acq_name, rel_name = acq
@@ -759,13 +842,16 @@ def analyze_exception_safety(
                     acquire=acq_name,
                     release=rel_name,
                     message=(
-                        f"Resource '{var}' acquired at line {n.lineno} is not exception-safe: "
-                        f"if '{first_name}()' at line {first_line} raises, '{var}' leaks "
-                        f"(normal paths release it, but an uncaught exception does not). "
-                        f"Wrap in try/finally or use 'with'."
+                        f"'{var}' = {acq_name}(...) at line {n.lineno} is not closed if an "
+                        f"exception occurs: '{first_name}()' (line {first_line}) may raise "
+                        f"before the close, with no try/finally or 'with' to catch it."
                     ),
                     acquire_line=n.lineno,
                     kind="exception",
+                    exception_note=(
+                        f"Exception risk: if '{first_name}()' (line {first_line}) raises, "
+                        f"'{var}' leaks — normal paths close it, errors don't."
+                    ),
                 ))
     return new_leaks
 

@@ -15,6 +15,9 @@ dependencies = [
 [project.scripts]
 codegate = "codegate.cli:main"
 
+[project.optional-dependencies]
+ensemble = ["semgrep>=1.60", "ruff>=0.4"]
+
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
