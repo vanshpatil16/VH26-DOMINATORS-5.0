@@ -24,6 +24,7 @@ import {
   Plus,
   Search,
   Sparkles,
+  CheckCircle2,
   X,
 } from "lucide-react";
 
@@ -637,6 +638,114 @@ export default function Home() {
         <section className="statement-section" id="customers">
           <div className="statement-grid shell"><span className="section-kicker">THE CODEGATE WAY</span><h2>Code that closes cleanly. Always.</h2><p>When every resource is guaranteed to be released on every path, your code becomes predictably correct — and your team ships with real confidence.</p><a className="primary-button" href="#signup">See CodeGate in action <Play size={14} fill="currentColor" /></a></div>
           <div className="statement-rule statement-rule-a" /><div className="statement-rule statement-rule-b" />
+        </section>
+
+        {/* ── Pricing Tiers Section ── */}
+        <section className="py-24 bg-[#08090c] border-t border-[#171a24] font-poppins" id="pricing" aria-labelledby="pricing-title">
+          <div className="shell max-w-6xl mx-auto px-4">
+            <div className="text-center max-w-2xl mx-auto mb-16">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-purple-400 font-semibold px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20">
+                Transparent Pricing
+              </span>
+              <h2 id="pricing-title" className="text-3xl sm:text-4xl font-bold text-white tracking-tight mt-4 mb-3">
+                Simple plans for teams of all sizes.
+              </h2>
+              <p className="text-sm text-zinc-400">
+                Integrate LeakGuard into your GitHub Actions workflow in minutes with a single license key.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[
+                {
+                  name: "Community",
+                  badge: "Free",
+                  price: "$0",
+                  period: "forever",
+                  desc: "Students, OSS, individual devs",
+                  color: "border-[#1e2230]",
+                  btnCls: "bg-white/5 hover:bg-white/10 text-white border border-white/10",
+                  features: ["CLI + VS Code Extension", "GitHub Action setup", "Unlimited local scans", "1 repository limit"],
+                  keyPrefix: "free",
+                },
+                {
+                  name: "Team",
+                  badge: "Popular",
+                  price: "$49",
+                  period: "/month",
+                  desc: "Small & medium dev teams",
+                  color: "border-purple-500/40 bg-purple-950/10 ring-1 ring-purple-500/30",
+                  btnCls: "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-500/20",
+                  features: ["Everything in Community", "Up to 10 private repos", "PR inline checks & history", "Interactive User Panel"],
+                  keyPrefix: "team",
+                },
+                {
+                  name: "Business",
+                  badge: "Pro",
+                  price: "$199",
+                  period: "/month",
+                  desc: "Growing tech companies",
+                  color: "border-rose-500/30 bg-rose-950/10",
+                  btnCls: "bg-gradient-to-r from-rose-500 to-purple-600 hover:from-rose-600 hover:to-purple-700 text-white shadow-lg shadow-rose-500/20",
+                  features: ["Everything in Team", "Up to 50 repos + RBAC", "LLM Shared Knowledgebase", "Admin panel & org policies"],
+                  keyPrefix: "biz",
+                },
+                {
+                  name: "Enterprise",
+                  badge: "Custom",
+                  price: "Custom",
+                  period: "from $10K/yr",
+                  desc: "Large organizations & security ops",
+                  color: "border-amber-500/30 bg-amber-950/10",
+                  btnCls: "bg-amber-500 hover:bg-amber-400 text-black font-bold",
+                  features: ["Unlimited repositories", "SSO / SAML authentication", "Self-hosted & air-gapped", "Custom SLA & dedicated support"],
+                  keyPrefix: "ent",
+                },
+              ].map((tier) => (
+                <div
+                  key={tier.name}
+                  className={`relative flex flex-col justify-between rounded-2xl p-6 border ${tier.color} transition-all duration-200 hover:translate-y-[-2px]`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="font-mono text-xs font-bold text-zinc-300 uppercase tracking-wider">
+                        {tier.name}
+                      </span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-zinc-400 border border-white/10 font-medium">
+                        {tier.badge}
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline gap-1 mb-2">
+                      <span className="text-3xl font-bold text-white tracking-tight">{tier.price}</span>
+                      <span className="text-xs font-mono text-zinc-500">{tier.period}</span>
+                    </div>
+
+                    <p className="text-xs text-zinc-400 mb-6 min-h-[32px]">{tier.desc}</p>
+
+                    <ul className="space-y-2.5 mb-8 text-xs text-zinc-300">
+                      {tier.features.map((feat) => (
+                        <li key={feat} className="flex items-center gap-2 font-mono text-[11px]">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      const genKey = `lg_live_${tier.keyPrefix}_${Math.random().toString(36).substring(2, 10)}`;
+                      alert(`🎉 Thank you for subscribing to ${tier.name} Plan!\n\nYour GitHub Action License Key:\n${genKey}\n\nAdd this key to your repo secrets as LEAKGUARD_LICENSE_KEY.`);
+                    }}
+                    className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${tier.btnCls}`}
+                  >
+                    {tier.price === "Custom" ? "Contact Sales" : "Get License Key"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
         <section className="footer-cta" id="signup"><div className="shell footer-cta-inner"><div><span className="section-kicker">START DETECTING TODAY</span><h2>Ship Python code that <em>never leaks.</em></h2></div><a className="primary-button primary-button-light" href="#contact">Get started <ArrowRight size={15} /></a></div></section>
