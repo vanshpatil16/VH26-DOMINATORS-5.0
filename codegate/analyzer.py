@@ -23,6 +23,8 @@ class Leak:
     message: str
     # Evidence
     acquire_line: int
+    # "path" = normal control-flow leak; "exception" = may-throw call can leak
+    kind: str = "path"
     paths: list[list[int]] = field(default_factory=list)  # block id paths that leak
     safe_paths: list[list[int]] = field(default_factory=list)
 
@@ -37,6 +39,7 @@ class Leak:
             "release": self.release,
             "message": self.message,
             "acquire_line": self.acquire_line,
+            "kind": self.kind,
             "leaking_paths": self.paths,
             "safe_paths": self.safe_paths,
         }
@@ -481,8 +484,8 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
     return list(by_line.values())
 
 
-def analyze_source(source: str, filename: str = "<string>", config: CodeGateConfig | None = None) -> list[Leak]:
-    """Analyze Python source string."""
+def analyze_source_with_cfg(source: str, filename: str = "<string>", config: CodeGateConfig | None = None) -> tuple[list[Leak], any]:
+    """Analyze Python source string and return (leaks, root_cfg)."""
     if config is None:
         config = CodeGateConfig.default()
     cfg = build_cfg(source, name=filename)
@@ -490,18 +493,11 @@ def analyze_source(source: str, filename: str = "<string>", config: CodeGateConf
 
     # Analyze each function cfg
     for (block_id, func_name), fcfg in cfg.functioncfgs.items():
-        # Skip nested functions that are not top-level? Analyze them too
-        # fcfg.name is func_name
         file_for_report = filename
         func_leaks = analyze_function_cfg(fcfg, func_name, file_for_report, config)
         leaks.extend(func_leaks)
 
-    # Also analyze module-level code as if it were a function "module"
-    # Build a pseudo-CFG for top-level? The main cfg itself may have acquires at module level
-    # For MVP, we analyze top-level linear blocks (less CFG complexity, treat as single block sequence)
-    # But we can also run analyze_function_cfg on the top cfg if it has blocks
     if cfg.entryblock is not None:
-        # Check if top-level has any acquires
         has_acquire_at_top = False
         for b in get_all_blocks_filtered(cfg):
             for s in b.statements:
@@ -516,10 +512,260 @@ def analyze_source(source: str, filename: str = "<string>", config: CodeGateConf
             top_leaks = analyze_function_cfg(cfg, "<module>", filename, config)
             leaks.extend(top_leaks)
 
+    # HARDEN-3: exception-safety pass (may-throw calls leaking live resources)
+    if config.exception_safety:
+        exc_leaks = analyze_exception_safety(source, leaks, config)
+        leaks.extend(exc_leaks)
+
+    return leaks, cfg
+
+
+def analyze_source(source: str, filename: str = "<string>", config: CodeGateConfig | None = None) -> list[Leak]:
+    """Analyze Python source string."""
+    leaks, _ = analyze_source_with_cfg(source, filename, config)
     return leaks
+
+
+def analyze_file_with_cfg(path: str | Path, config: CodeGateConfig | None = None) -> tuple[list[Leak], any]:
+    p = Path(path)
+    src = p.read_text(encoding="utf-8")
+    return analyze_source_with_cfg(src, filename=str(p), config=config)
 
 
 def analyze_file(path: str | Path, config: CodeGateConfig | None = None) -> list[Leak]:
     p = Path(path)
     src = p.read_text(encoding="utf-8")
     return analyze_source(src, filename=str(p), config=config)
+
+
+# ---------------------------------------------------------------------------
+# Exception-path analysis (HARDEN-3)
+# ---------------------------------------------------------------------------
+# Rationale: the CFG above only models normal control flow. But any call can
+# raise; if a resource is live when an uncaught exception propagates, it leaks.
+# The classic unsound-but-common pattern:
+#
+#     f = open(p)
+#     data = f.read()   # <- if this raises, f leaks (no finally!)
+#     f.close()
+#
+# is reported SAFE by pure path analysis. This module catches it.
+#
+# Sound rules implemented:
+#   A call at line L may leak live resource v iff:
+#     1. acquire(v) < L  (v is live at L on the statement-order approximation)
+#     2. L < first release of v (or v never released)  — after release, safe
+#     3. L is NOT lexically inside a `with` body (context manager handles unwind)
+#     4. L is NOT inside a try body that has at least one except handler
+#        (exception is caught, control continues — no exceptional exit)
+#     5. L is not the release call itself / acquire call itself
+#
+# Known approximation: statement-order (line) liveness, not path-sensitive.
+# Nested scopes (inner defs/lambdas/classes) are excluded from the caller's
+# analysis; they get analyzed as their own functions.
+# ---------------------------------------------------------------------------
+
+_SCOPE_NODES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+
+
+def _walk_own(node: ast.AST):
+    """Yield descendants of node without entering nested scopes."""
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, _SCOPE_NODES):
+            continue
+        yield child
+        yield from _walk_own(child)
+
+
+def _exception_leak_candidates(
+    func_ast: ast.AST,
+    acquire_line: int,
+    var: str,
+    release_name: str,
+) -> list[tuple[int, str]]:
+    """Return [(call_line, called_name)] where a raise would leak `var`.
+
+    Per-var safe regions (exception at a line here would still release `var`):
+      - try body WITH at least one except handler  (exception caught, control continues)
+      - try body whose finally releases `var` via any alias
+          (finally runs during unwinding -> resource released)
+    NOT safe (common misconception):
+      - with bodies for OUTER resources: the with's __exit__ only cleans up the
+        with's own context managers; an outer `f` used inside still leaks.
+      - finally bodies themselves (a call inside finally may raise).
+    """
+    aliases = {var}
+    calls: list[ast.Call] = []
+    release_lines: list[int] = []
+    acquire_call: ast.Call | None = None
+
+    # try-node records: (body_start, body_end, has_handlers, finally_closes_var)
+    try_regions: list[tuple[int, int, bool, bool]] = []
+
+    def _releases_var(stmts: list[ast.stmt]) -> bool:
+        for s in stmts:
+            # _walk_own(s) yields children of s, so the Expr wrapper is never
+            # yielded — match the Call directly.
+            for sub in _walk_own(s):
+                if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Attribute) \
+                        and sub.func.attr == release_name \
+                        and isinstance(sub.func.value, ast.Name) \
+                        and sub.func.value.id in aliases:
+                    return True
+        return False
+
+    for n in _walk_own(func_ast):
+        if isinstance(n, ast.Try):
+            has_handlers = bool(n.handlers)
+            fin_closes = _releases_var(n.finalbody) if n.finalbody else False
+            if n.body:
+                try_regions.append((n.body[0].lineno, n.body[-1].end_lineno, has_handlers, fin_closes))
+        elif isinstance(n, ast.Call):
+            calls.append(n)
+        elif isinstance(n, ast.Assign) and len(n.targets) == 1 \
+                and isinstance(n.targets[0], ast.Name) and isinstance(n.value, ast.Name):
+            if n.value.id in aliases:
+                aliases.add(n.targets[0].id)  # g = f  -> g is also a handle
+        elif isinstance(n, ast.Expr) and isinstance(n.value, ast.Call) \
+                and isinstance(n.value.func, ast.Attribute) \
+                and n.value.func.attr == release_name \
+                and isinstance(n.value.func.value, ast.Name) \
+                and n.value.func.value.id in aliases:
+            release_lines.append(n.lineno)
+        if acquire_call is None and isinstance(n, (ast.Assign, ast.AnnAssign)) \
+                and getattr(n, "lineno", None) == acquire_line \
+                and isinstance(n.value, ast.Call):
+            acquire_call = n.value
+
+    first_release = min(release_lines) if release_lines else None
+
+    def is_safe(line: int) -> bool:
+        for (s, e, has_handlers, fin_closes) in try_regions:
+            if s <= line <= e:
+                if has_handlers or fin_closes:
+                    return True
+        return False
+
+    bad: list[tuple[int, str]] = []
+    for c in calls:
+        if c.lineno <= acquire_line:
+            continue
+        if acquire_call is not None and c is acquire_call:
+            continue
+        if first_release is not None and c.lineno >= first_release:
+            continue  # resource released before this call on this order
+        if is_safe(c.lineno):
+            continue
+        if isinstance(c.func, ast.Attribute):
+            name = c.func.attr
+        elif isinstance(c.func, ast.Name):
+            name = c.func.id
+        else:
+            name = "<expr>"
+        bad.append((c.lineno, name))
+    return bad
+
+
+def _find_enclosing_function(tree: ast.Module, line: int) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    """Find the function whose source range contains `line` (nearest/deepest)."""
+    best = None
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.lineno <= line <= (node.end_lineno or node.lineno):
+                # prefer deepest (smallest range)
+                if best is None or (node.end_lineno - node.lineno) < (best.end_lineno - best.lineno):
+                    best = node
+    return best
+
+
+def _exception_leaks_for(
+    tree: ast.Module,
+    path_leaks: list[Leak],
+    file_path: str,
+) -> list[Leak]:
+    """For each normal-path leak (or even safe-path acquire), check exception safety."""
+    extra: list[Leak] = []
+    seen_acquire: set[tuple[str, int]] = set()
+
+    # Also check acquires that were NOT path-leaks (f=open; f.read(); f.close() is
+    # path-SAFE but exception-UNSAFE). We recompute acquires per enclosing function.
+    for lk in path_leaks:
+        key = (lk.func, lk.acquire_line)
+        if key in seen_acquire:
+            continue
+        seen_acquire.add(key)
+        func = _find_enclosing_function(tree, lk.acquire_line)
+        if func is None:
+            continue
+        bad_calls = _exception_leak_candidates(func, lk.acquire_line, lk.var, lk.release)
+        if bad_calls:
+            first_line, first_name = bad_calls[0]
+            lk.message += (
+                f" | EXCEPTION-PATH LEAK: if '{first_name}()' at line {first_line} raises, "
+                f"'{lk.var}' leaks (no enclosing try/finally or with). "
+                f"Wrap in try/finally or use 'with'."
+            )
+            lk.kind = "path+exception"
+    return extra
+
+
+def analyze_exception_safety(
+    source: str,
+    path_leaks: list[Leak],
+    config: CodeGateConfig,
+) -> list[Leak]:
+    """Standalone exception-safety pass.
+
+    In addition to annotating existing path-leaks, it catches acquires that are
+    path-safe but exception-unsafe (the classic no-finally pattern).
+    Returns NEW exception-only leaks not already covered by a path leak.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
+
+    # Collect all acquires per function from the desugared-free original AST
+    new_leaks: list[Leak] = []
+    annotated: set[tuple[str, int]] = set()
+
+    # 1) Annotate existing path leaks
+    _exception_leaks_for(tree, path_leaks, path_leaks[0].file if path_leaks else "<string>")
+    for lk in path_leaks:
+        annotated.add((lk.var, lk.acquire_line))
+
+    # 2) Find exception-unsafe acquires that had no path leak
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for n in _walk_own(node):
+            acq = _get_acquire_info(n, config.resources)
+            if not acq:
+                continue
+            var, acq_name, rel_name = acq
+            key = (var, n.lineno)
+            if key in annotated:
+                continue  # already reported (path leak or annotated above)
+            annotated.add(key)
+            bad_calls = _exception_leak_candidates(node, n.lineno, var, rel_name)
+            if bad_calls:
+                first_line, first_name = bad_calls[0]
+                new_leaks.append(Leak(
+                    file=path_leaks[0].file if path_leaks else "<string>",
+                    func=node.name,
+                    line=n.lineno,
+                    col=getattr(n, "col_offset", 0),
+                    var=var,
+                    acquire=acq_name,
+                    release=rel_name,
+                    message=(
+                        f"Resource '{var}' acquired at line {n.lineno} is not exception-safe: "
+                        f"if '{first_name}()' at line {first_line} raises, '{var}' leaks "
+                        f"(normal paths release it, but an uncaught exception does not). "
+                        f"Wrap in try/finally or use 'with'."
+                    ),
+                    acquire_line=n.lineno,
+                    kind="exception",
+                ))
+    return new_leaks
+

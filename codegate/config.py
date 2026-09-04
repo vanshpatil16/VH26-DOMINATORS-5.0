@@ -35,6 +35,10 @@ class CodeGateConfig:
     with_is_safe: bool = True
     # If True, `try: ... finally: f.close()` is safe
     try_finally_is_safe: bool = True
+    # HARDEN-3: if True, flag acquires where an uncaught exception (may-throw
+    # call) leaks the resource even though normal paths are safe.
+    # The classic `f = open(p); f.read(); f.close()` without try/finally.
+    exception_safety: bool = True
 
     @classmethod
     def default(cls) -> "CodeGateConfig":
@@ -62,4 +66,5 @@ def load_config_from_dict(d: dict) -> CodeGateConfig:
         resources=resources or CodeGateConfig.default().resources,
         with_is_safe=d.get("with_is_safe", True),
         try_finally_is_safe=d.get("try_finally_is_safe", True),
+        exception_safety=d.get("exception_safety", True),
     )

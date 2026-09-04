@@ -4,9 +4,13 @@ from codegate.analyzer import analyze_source
 CFG = __import__('codegate.config', fromlist=['CodeGateConfig']).CodeGateConfig.default
 
 def check(src, expect_leak, name="test"):
+    """Check for PATH leaks (normal control-flow). Exception-only findings are
+    covered in tests/test_hardened.py — a path-safe but exception-unsafe acquire
+    is intentional HARDEN-3 behavior, so we filter to kind='path' here."""
     leaks = analyze_source(textwrap.dedent(src), filename=name)
-    got = len(leaks) > 0
-    assert got == expect_leak, f"{name}: expect_leak={expect_leak} got={got} leaks={[l.message for l in leaks]} path={leaks[0].paths if leaks else None}"
+    path_leaks = [lk for lk in leaks if lk.kind in ("path", "path+exception")]
+    got = len(path_leaks) > 0
+    assert got == expect_leak, f"{name}: expect_leak={expect_leak} got={got} path_leaks={[l.message for l in path_leaks]} all={[(l.kind, l.acquire_line) for l in leaks]}"
 
 def test_leak_simple():
     check("""

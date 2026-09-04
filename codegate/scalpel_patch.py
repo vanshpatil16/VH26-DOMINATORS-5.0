@@ -119,10 +119,71 @@ def apply_patches() -> None:
 apply_patches()
 
 
-def build_cfg(src: str, name: str = "module") -> CFG:
-    """Build CFG from source using patched builder."""
+def _edge_key(exitcase) -> tuple:
+    """Normalize an edge's exitcase for dedupe: Constant(True) == fall-through."""
+    if exitcase is None:
+        return ("none", None)
+    if isinstance(exitcase, ast.Constant) and exitcase.value is True:
+        return ("none", None)  # True-guard edge == fall-through for dedupe purposes
+    return ("expr", ast.dump(exitcase))
+
+
+def dedupe_cfg(cfg: CFG) -> CFG:
+    """Remove duplicate/self edges left by clean_cfg's block merging.
+
+    Scalpel's clean_cfg can produce:
+      - duplicate exits with identical (target, exitcase)
+      - Constant(True)-guarded edges AND plain fall-through edges to the
+        same target (from the try/finally machinery) — semantically duplicates
+      - duplicate predecessors pointing at the same phantom merge
+    Duplicate edges break DFS path enumeration (double-counting paths).
+    """
+    for block in cfg.get_all_blocks():
+        # Dedupe exits
+        seen: set = set()
+        new_exits = []
+        for e in block.exits:
+            key = (e.target.id, _edge_key(e.exitcase))
+            if key in seen:
+                # remove twin from target's predecessors
+                if e in e.target.predecessors:
+                    e.target.predecessors.remove(e)
+                continue
+            seen.add(key)
+            new_exits.append(e)
+        block.exits = new_exits
+        # Dedupe predecessors
+        seen = set()
+        new_preds = []
+        for p in block.predecessors:
+            key = (p.source.id, _edge_key(p.exitcase))
+            if key in seen:
+                continue
+            seen.add(key)
+            new_preds.append(p)
+        block.predecessors = new_preds
+    # Recurse into nested function/class CFGs (they are separate CFG objects)
+    for sub_cfg in cfg.functioncfgs.values():
+        dedupe_cfg(sub_cfg)
+    for cls_cfg in cfg.class_cfgs.values():
+        dedupe_cfg(cls_cfg)
+    return cfg
+
+
+def build_cfg(src: str, name: str = "module", desugar_match: bool = True) -> CFG:
+    """Build CFG from source using patched builder.
+
+    - Desugars match statements (Scalpel has no visit_Match — bodies get swallowed)
+    - Dedupes CFG edges produced by clean_cfg
+    """
+    from .desugar import desugar_module
+
+    tree = ast.parse(src)
+    if desugar_match:
+        tree = desugar_module(tree)
     builder = CFGBuilder()
-    return builder.build_from_src(name, src)
+    cfg = builder.build(name, tree)
+    return dedupe_cfg(cfg)
 
 
 def build_cfg_from_file(path: str | Path, name: str | None = None) -> CFG:
