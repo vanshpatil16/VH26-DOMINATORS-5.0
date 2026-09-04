@@ -757,15 +757,15 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Bottom Row Center: Repository Language Breakdown Donut Chart (4 cols) */}
+          {/* Bottom Row Center: Leak Type Breakdown Donut Chart (4 cols) */}
           <div className="lg:col-span-4 bg-[#13151b] border border-[#202430] rounded-2xl p-5 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base md:text-lg font-semibold text-white font-poppins">
-                  Audience
+                  Leak Breakdown
                 </h3>
                 <button className="flex items-center space-x-1 text-xs text-zinc-400 bg-[#171a22] border border-[#252a36] px-3 py-1 rounded-lg">
-                  <span>All Genders</span>
+                  <span>All Severities</span>
                   <ChevronDown className="w-3 h-3" />
                 </button>
               </div>
@@ -800,9 +800,9 @@ export default function Dashboard() {
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                     <span className="text-base font-bold text-white leading-tight font-poppins">
-                      201k
+                      248
                     </span>
-                    <span className="text-[10px] text-zinc-400 font-poppins">Total</span>
+                    <span className="text-[10px] text-zinc-400 font-poppins">Leaks</span>
                   </div>
                 </div>
 
@@ -811,28 +811,28 @@ export default function Dashboard() {
                   <div className="flex justify-between items-center text-zinc-300">
                     <span className="flex items-center space-x-2">
                       <span className="w-2 h-2 rounded-full bg-cyan-400 inline-block" />
-                      <span>18 - 24 years</span>
+                      <span>File handles</span>
                     </span>
                     <span className="font-mono font-semibold">40%</span>
                   </div>
                   <div className="flex justify-between items-center text-zinc-400">
                     <span className="flex items-center space-x-2">
                       <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />
-                      <span>25 - 40 years</span>
+                      <span>Network sockets</span>
                     </span>
                     <span className="font-mono font-semibold">25%</span>
                   </div>
                   <div className="flex justify-between items-center text-zinc-400">
                     <span className="flex items-center space-x-2">
                       <span className="w-2 h-2 rounded-full bg-purple-700 inline-block" />
-                      <span>41 - 55 years</span>
+                      <span>DB connections</span>
                     </span>
                     <span className="font-mono font-semibold">20%</span>
                   </div>
                   <div className="flex justify-between items-center text-zinc-500">
                     <span className="flex items-center space-x-2">
                       <span className="w-2 h-2 rounded-full bg-purple-900 inline-block" />
-                      <span>56 - 65 years</span>
+                      <span>Locks &amp; threads</span>
                     </span>
                     <span className="font-mono font-semibold">10%</span>
                   </div>
@@ -849,15 +849,15 @@ export default function Dashboard() {
 
             <div className="bg-[#181a23] border border-[#272c3b] rounded-xl p-2.5 flex items-start space-x-2 text-[11px] text-zinc-300">
               <Bot className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-              <span><strong className="text-white font-medium">AI note:</strong> The audience is skewed toward younger, habit-driven users.</span>
+              <span><strong className="text-white font-medium">AI note:</strong> Most leaks are unclosed file handles on early-return paths.</span>
             </div>
           </div>
 
-          {/* Bottom Row Right: Quality Score Radial Gauge Card (4 cols) */}
+          {/* Bottom Row Right: Cleanup Coverage Radial Gauge Card (4 cols) */}
           <div className="lg:col-span-4 bg-[#13151b] border border-[#202430] rounded-2xl p-5 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-base md:text-lg font-semibold text-white font-poppins">
-                Quality Score
+                Cleanup Coverage
               </h3>
               <a
                 href={`https://github.com/${githubUser?.login || githubUsername}`}
@@ -899,13 +899,13 @@ export default function Dashboard() {
                   64%
                 </text>
                 <text x="100" y="98" textAnchor="middle" className="text-[11px] fill-zinc-400 font-poppins">
-                  Average Score
+                  Paths cleaned up
                 </text>
               </svg>
             </div>
 
             <div className="text-[11px] text-zinc-500 text-center font-mono pt-1">
-              Updated in real-time from AI model benchmarks
+              Recomputed on every CodeGate analysis run
             </div>
           </div>
 
