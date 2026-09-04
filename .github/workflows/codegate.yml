@@ -36,7 +36,11 @@ jobs:
       - name: Run LeakGuard CodeGate Analysis
         id: leakguard
         run: |
-          python -m codegate.ci . --ensemble | tee leakguard-report.txt
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            python -m codegate.ci --changed-only --base origin/${{ github.base_ref }} --ensemble | tee leakguard-report.txt
+          else
+            python -m codegate.ci . --ensemble | tee leakguard-report.txt
+          fi
 
       - name: Upload Scan Artifact
         if: always()
