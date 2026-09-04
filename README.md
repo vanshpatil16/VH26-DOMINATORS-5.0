@@ -142,6 +142,79 @@ Scanning uses **zero online learning** and evaluates one frozen dot product from
 
 ---
 
+### 3. Human-in-the-Loop Feedback and Manual Approval Gate
+
+Developers correct the analyzer in two ways, and **neither of them changes a
+weight at scan time**. Feedback accumulates offline; a model is only ever
+promoted by a human merging a pull request.
+
+```text
+                            Developer
+                                |
+                                v
+                         Manual feedback
+                                |
+                  +-------------+--------------+
+                  v                            v
+          Behaviour signal              Explicit signal
+    suppression comments in git      leakguard feedback <id>
+    leak-fix commits in history      accept / reject a verdict
+                  |                            |
+                  +-------------+--------------+
+                                v
+                          Feedback DB
+                                |
+                                v
+                        Training dataset
+                     mutation corpus + feedback
+                                |
+                          Enough data?
+                                |
+                         +------+-------+
+                         v              v
+                        NO             YES
+                         |              |
+                         |              v
+                         |      Train candidate model
+                         |              |
+                         |              v
+                         |    Evaluate on held-out split
+                         |    grouped by family, never by file
+                         |              |
+                         |       +------+------+
+                         |       v             v
+                         |    Better?        Worse
+                         |       |             |
+                         |       v             v
+                         |  Open PR carrying  Reject
+                         |  the model.json    candidate
+                         |  weight diff          |
+                         |       |               |
+                         |       v               |
+                         |  MANUAL APPROVAL      |
+                         |  human merge required |
+                         |       |               |
+                         |       v               |
+                         |  model V2 deployed    |
+                         |                       |
+                         +-----------+-----------+
+                                     v
+                          Continue on current model
+```
+
+**Why the approval gate exists.** The design law of this project is that the
+same commit SHA must always produce the same verdict. Online learning would
+break that: two runs of the same code could disagree, and a build that passed
+in the morning could fail in the afternoon with no code change. So feedback
+never mutates a live model. `leakguard calibrate` produces a reviewable weight
+diff, a human reads it, and merging that PR is the only path to new weights.
+
+Per-repo calibration works the same way: LeakGuard regularises repo-specific
+weights toward the global mutation-trained weights with an L2 pull, so a
+40-commit repository cannot overfit its own history.
+
+---
+
 ## 💡 Two Key Questions Answered
 
 ### 1. "Python is garbage-collected — why is this even a bug?"
