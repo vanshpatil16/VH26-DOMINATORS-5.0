@@ -46,7 +46,7 @@ export default function AuthModal({
   const [passwordInput, setPasswordInput] = useState("");
   const [isGithubConnected, setIsGithubConnected] = useState(false);
   const [isConnectingGithub, setIsConnectingGithub] = useState(false);
-  
+
   const [githubUser, setGithubUser] = useState<GitHubUser | null>(null);
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
@@ -84,7 +84,7 @@ export default function AuthModal({
       setRepos(userRepos);
       setIsGithubConnected(true);
       localStorage.setItem("connected_github_user", userToFetch);
-      
+
       // Load commits for first repo by default
       if (userRepos[0]) {
         setSelectedRepo(userRepos[0].name);

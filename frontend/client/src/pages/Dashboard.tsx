@@ -252,7 +252,7 @@ export default function Dashboard() {
     <div className="font-poppins min-h-screen bg-[#07080a] text-white p-4 md:p-7 select-none">
       {/* Outer Card Wrapper */}
       <div className="max-w-[1440px] mx-auto bg-[#0d0e12] border border-[#1c1f28] rounded-[28px] p-5 md:p-7 shadow-2xl space-y-6">
-        
+
         {/* Top Navbar */}
         <header className="flex flex-wrap xl:flex-nowrap items-center justify-between gap-4 pb-4 border-b border-[#1b1e27]">
           {/* Brand Logo & Back to Home */}
@@ -276,44 +276,40 @@ export default function Dashboard() {
           <div className="flex items-center bg-[#15171e] border border-[#252936] p-1.5 rounded-2xl overflow-x-auto shrink-0 max-w-full scrollbar-none">
             <button
               onClick={() => setActiveTab("Overview")}
-              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 whitespace-nowrap ${
-                activeTab === "Overview"
-                  ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
-                  : "text-zinc-400 hover:text-white hover:bg-white/5"
-              }`}
+              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all ${activeTab === "Overview"
+                ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
+                : "text-zinc-400 hover:text-white hover:bg-white/5"
+                }`}
             >
               <GridIcon className="w-3.5 h-3.5" />
               <span>Overview</span>
             </button>
             <button
               onClick={() => setActiveTab("Reports")}
-              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 whitespace-nowrap ${
-                activeTab === "Reports"
-                  ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
-                  : "text-zinc-400 hover:text-white hover:bg-white/5"
-              }`}
+              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all ${activeTab === "Reports"
+                ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
+                : "text-zinc-400 hover:text-white hover:bg-white/5"
+                }`}
             >
               <FileText className="w-3.5 h-3.5" />
               <span>Reports</span>
             </button>
             <button
               onClick={() => setActiveTab("Optimization")}
-              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 whitespace-nowrap ${
-                activeTab === "Optimization"
-                  ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
-                  : "text-zinc-400 hover:text-white hover:bg-white/5"
-              }`}
+              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all ${activeTab === "Optimization"
+                ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
+                : "text-zinc-400 hover:text-white hover:bg-white/5"
+                }`}
             >
               <Sliders className="w-3.5 h-3.5" />
               <span>Optimization</span>
             </button>
             <button
               onClick={() => setActiveTab("Insights")}
-              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 whitespace-nowrap ${
-                activeTab === "Insights"
-                  ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
-                  : "text-zinc-400 hover:text-white hover:bg-white/5"
-              }`}
+              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all ${activeTab === "Insights"
+                ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
+                : "text-zinc-400 hover:text-white hover:bg-white/5"
+                }`}
             >
               <Lightbulb className="w-3.5 h-3.5" />
               <span>Insights</span>
@@ -435,7 +431,7 @@ export default function Dashboard() {
 
         {/* Main Dashboard Layout (12 Columns) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-5">
-          
+
           {/* Top 3 Metric Cards (8 cols on lg screen) */}
           <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-[#13151b] border border-[#202430] rounded-2xl p-5 relative overflow-hidden group hover:border-[#303748] transition-all">
@@ -568,13 +564,12 @@ export default function Dashboard() {
                               <div
                                 key={cIdx}
                                 title={`${days[cIdx]} @ ${timeLabel}: ${count} commit${count !== 1 ? "s" : ""}`}
-                                className={`h-6 rounded-md transition-all duration-200 cursor-pointer flex items-center justify-center text-[10px] font-mono ${
-                                  isPeak
-                                    ? "bg-[#a855f7] text-white font-bold shadow-[0_0_12px_rgba(168,85,247,0.6)] ring-1 ring-purple-300/50 scale-105"
-                                    : isActive
+                                className={`h-6 rounded-md transition-all duration-200 cursor-pointer flex items-center justify-center text-[10px] font-mono ${isPeak
+                                  ? "bg-[#a855f7] text-white font-bold shadow-[0_0_12px_rgba(168,85,247,0.6)] ring-1 ring-purple-300/50 scale-105"
+                                  : isActive
                                     ? "bg-[#6b46c1] text-purple-100 hover:scale-110"
                                     : "bg-[#181525] border border-purple-950/40 text-zinc-600 hover:border-purple-800/60"
-                                }`}
+                                  }`}
                               >
                                 {count > 0 ? count : ""}
                               </div>
@@ -722,9 +717,8 @@ export default function Dashboard() {
                     {[...Array(9)].map((_, i) => (
                       <div
                         key={i}
-                        className={`h-2 rounded-full transition-all ${
-                          i >= 2 ? "bg-[#22c55e]" : "bg-zinc-800"
-                        }`}
+                        className={`h-2 rounded-full transition-all ${i >= 2 ? "bg-[#22c55e]" : "bg-zinc-800"
+                          }`}
                       />
                     ))}
                   </div>
@@ -737,9 +731,8 @@ export default function Dashboard() {
                     {[...Array(9)].map((_, i) => (
                       <div
                         key={i}
-                        className={`h-2 rounded-full transition-all ${
-                          i >= 5 ? "bg-[#f97316]" : "bg-zinc-800"
-                        }`}
+                        className={`h-2 rounded-full transition-all ${i >= 5 ? "bg-[#f97316]" : "bg-zinc-800"
+                          }`}
                       />
                     ))}
                   </div>
@@ -988,11 +981,10 @@ export default function Dashboard() {
                 <button
                   key={r.id}
                   onClick={() => handleSelectRepo(r.name)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-mono flex items-center space-x-2 transition-all flex-shrink-0 cursor-pointer ${
-                    isSelected
-                      ? "bg-purple-600 text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
-                      : "bg-[#181b24] text-zinc-400 hover:text-white border border-[#262b3a]"
-                  }`}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-mono flex items-center space-x-2 transition-all flex-shrink-0 cursor-pointer ${isSelected
+                    ? "bg-purple-600 text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
+                    : "bg-[#181b24] text-zinc-400 hover:text-white border border-[#262b3a]"
+                    }`}
                 >
                   <GitBranch className="w-3 h-3" />
                   <span>{r.name}</span>

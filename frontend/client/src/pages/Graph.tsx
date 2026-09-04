@@ -91,7 +91,7 @@ export default function Graph() {
       } catch (err) {
         setError(
           `Analyzer unreachable: ${err instanceof Error ? err.message : String(err)}. ` +
-            `The Python backend serves POST /api/codegate/analyze — run the app from the repo root with CodeGate installed (pip install -e .).`
+          `The Python backend serves POST /api/codegate/analyze — run the app from the repo root with CodeGate installed (pip install -e .).`
         );
       } finally {
         setLoadingAst(false);
@@ -279,11 +279,10 @@ export default function Graph() {
               <button
                 key={r.id}
                 onClick={() => void loadRepo(r)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
-                  active
+                className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${active
                     ? "bg-purple-500/15 border-purple-500/50 text-purple-200"
                     : "bg-[#181b24] border-[#272c3d] text-zinc-400 hover:text-white hover:border-purple-500/30"
-                }`}
+                  }`}
               >
                 {r.name}
                 {r.language && (
@@ -324,11 +323,10 @@ export default function Graph() {
                   key={f.sha + f.path}
                   onClick={() => repo && void analyzeFile(repo, f.path)}
                   title={f.path}
-                  className={`flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-mono transition-colors ${
-                    active
+                  className={`flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-mono transition-colors ${active
                       ? "bg-cyan-500/10 border-cyan-500/40 text-cyan-200"
                       : "bg-[#0f1117] border-[#202430] text-zinc-400 hover:text-white hover:border-purple-500/40"
-                  }`}
+                    }`}
                 >
                   <span className="truncate">{f.path}</span>
                   <span className="text-[9px] text-zinc-600 flex-shrink-0">
