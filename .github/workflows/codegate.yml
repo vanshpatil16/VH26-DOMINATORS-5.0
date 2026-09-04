@@ -2,9 +2,9 @@ name: LeakGuard CodeGate CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, ast/cfg, ast-cfg]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, ast/cfg, ast-cfg]
 
 jobs:
   leakguard-scan:
