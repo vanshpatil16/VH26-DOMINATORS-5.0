@@ -125,6 +125,9 @@ def main(argv: list[str] | None = None) -> int:
         return install_hook()
     if args_list and args_list[0] == "scan":
         return _scan_main(args_list[1:])
+    if args_list and args_list[0] == "benchmark":
+        from .benchmark import main as bench_main
+        return bench_main(args_list[1:])
     if args_list and args_list[0] == "fix":
         return _fix_main(args_list[1:])
 
