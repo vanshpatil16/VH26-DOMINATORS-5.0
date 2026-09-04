@@ -128,6 +128,33 @@ def run_ci(targets: list[str], ensemble: bool = False, changed_only: bool = Fals
         status = "PASSED" if total_path_leaks == 0 else "FAILED"
         print(f"  {status}: {total_path_leaks} path leak(s), {total_exception} exception risk(s)")
 
+    # GitHub Step Summary output (renders rich table on PR Checks UI)
+    import os
+    summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_file:
+        try:
+            status_badge = "✅ **PASSED**" if total_path_leaks == 0 else "❌ **FAILED**"
+            md_lines = [
+                "### 🛡️ LeakGuard / CodeGate Resource-Leak Scan",
+                f"**Status:** {status_badge} | **Files Scanned:** `{len(files)}` | **Path Leaks:** `{total_path_leaks}` | **Exception Risks:** `{total_exception}`",
+                "",
+            ]
+            if summary_rows:
+                md_lines.extend([
+                    "| File | Line | Leak Description |",
+                    "| :--- | :--- | :--- |",
+                ])
+                for row in summary_rows:
+                    clean_file = row[0].replace("\\", "/")
+                    md_lines.append(f"| `{clean_file}` | L{row[1]} | {row[2]} |")
+            else:
+                md_lines.append("✨ No resource leaks detected in scanned files.")
+
+            with open(summary_file, "a", encoding="utf-8") as sf:
+                sf.write("\n".join(md_lines) + "\n")
+        except Exception:
+            pass
+
     # GitHub annotations go to stdout (Actions picks these up)
     if emit_annotations:
         for a in annotations:
@@ -194,6 +221,17 @@ def install_hook() -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
     parser = argparse.ArgumentParser(prog="codegate ci",
                                      description="Preventive CI: scan code, emit GitHub annotations, exit 1 on leaks")
     parser.add_argument("targets", nargs="*", default=["."], help="Files/dirs to scan (default: .)")

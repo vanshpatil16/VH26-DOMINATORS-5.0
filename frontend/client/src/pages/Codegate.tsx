@@ -168,10 +168,10 @@ export default function Codegate() {
               <button
                 key={d.name}
                 onClick={() => pickDemo(i)}
-                className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 shadow-sm ${
                   activeFile.name === d.filename && activeFile.code === d.code
-                    ? "bg-purple-600/20 border-purple-500/40 text-purple-200 hover:text-purple-100 focus:text-purple-100 font-semibold"
-                    : "bg-[#0d0e12] border-[#1c1f28] text-zinc-400 hover:border-purple-500/30 hover:text-zinc-200 hover:bg-[#13151c]"
+                    ? "bg-purple-600/30 border-purple-500/60 text-purple-100 font-semibold shadow-purple-950/50"
+                    : "bg-[#0d0e12] border-[#1c1f28] text-zinc-400 hover:border-purple-500/40 hover:text-zinc-100 hover:bg-[#13151c]"
                 }`}
               >
                 {d.name}
@@ -179,7 +179,7 @@ export default function Codegate() {
             ))}
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-[11px] font-medium text-emerald-300 hover:border-emerald-500/50 hover:bg-emerald-500/20 hover:text-emerald-100 focus:text-emerald-100 transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-xs font-medium text-emerald-300 hover:border-emerald-500/70 hover:bg-emerald-500/20 hover:text-emerald-100 transition-all duration-200 shadow-sm shadow-emerald-950/40"
               title="Upload .py files (or drag & drop onto the editor)"
             >
               <Upload className="w-3.5 h-3.5" />
@@ -200,24 +200,24 @@ export default function Codegate() {
 
           {/* loaded file chips */}
           {files.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap pt-1">
               {files.map((f, i) => (
                 <span
                   key={`${f.name}-${i}`}
-                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[10px] font-mono transition-all cursor-pointer ${
+                  className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-lg border text-xs font-mono transition-all duration-200 cursor-pointer shadow-sm ${
                     i === activeIdx
-                      ? "bg-purple-600/30 border-purple-500/50 text-purple-200 hover:text-purple-100 font-medium"
-                      : "bg-[#0d0e12] border-[#1c1f28] text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                      ? "bg-purple-950/40 border-purple-500/60 text-purple-200 font-medium"
+                      : "bg-[#0d0e12] border-[#1c1f28] text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 hover:bg-white/5"
                   }`}
                   onClick={() => { setActiveIdx(i); setResult(null); }}
                 >
-                  <FileCode2 className="w-3 h-3" />
+                  <FileCode2 className={`w-3.5 h-3.5 ${i === activeIdx ? "text-purple-400" : "text-zinc-500"}`} />
                   {f.name}
                   {files.length > 1 && (
                     <button
                       onClick={(e) => { e.stopPropagation(); closeFile(i); }}
-                      className="text-zinc-600 hover:text-red-400 transition-colors"
-                      title="Remove"
+                      className="text-zinc-500 hover:text-red-400 transition-colors p-0.5 rounded"
+                      title="Remove file"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -307,9 +307,14 @@ export default function Codegate() {
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-xs text-red-300">
-              <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5" />
-              <span className="font-mono">{error}</span>
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-300 space-y-2">
+              <div className="flex items-center gap-2 font-medium">
+                <TriangleAlert className="w-4 h-4 shrink-0 text-red-400" />
+                <span>Backend Execution Error</span>
+              </div>
+              <pre className="p-2.5 rounded-lg bg-black/40 border border-red-500/20 text-[11px] font-mono text-red-200 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">
+                {error}
+              </pre>
             </div>
           )}
         </div>
