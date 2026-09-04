@@ -1,0 +1,301 @@
+{
+  "calibration_split": "val",
+  "max_false_alarm_rate": 0.05,
+  "test": {
+    "brier": 0.4112,
+    "counts": {
+      "fn": 0,
+      "fp": 88,
+      "tn": 14,
+      "tp": 68
+    },
+    "expected_calibration_error": 0.454612,
+    "f1": 0.6071,
+    "false_alarm_rate": 0.8627,
+    "positives": 68,
+    "precision": 0.4359,
+    "recall": 1.0,
+    "recall_by_edge_case": {
+      "EC-CF-01": {
+        "detected": 10,
+        "positives": 10,
+        "recall": 1.0
+      },
+      "EC-CF-02": {
+        "detected": 10,
+        "positives": 10,
+        "recall": 1.0
+      },
+      "EC-CF-03": {
+        "detected": 16,
+        "positives": 16,
+        "recall": 1.0
+      },
+      "EC-CF-12": {
+        "detected": 42,
+        "positives": 42,
+        "recall": 1.0
+      },
+      "EC-CF-21": {
+        "detected": 16,
+        "positives": 16,
+        "recall": 1.0
+      }
+    },
+    "recall_by_operator": {
+      "M13_finally_to_pass": {
+        "detected": 42,
+        "positives": 42,
+        "recall": 1.0
+      },
+      "M2_delete_branch_close": {
+        "detected": 16,
+        "positives": 16,
+        "recall": 1.0
+      },
+      "M3_insert_early_return": {
+        "detected": 10,
+        "positives": 10,
+        "recall": 1.0
+      }
+    },
+    "rows": 170,
+    "rules_only_baseline": {
+      "counts": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 102,
+        "tp": 68
+      },
+      "f1": 1.0,
+      "false_alarm_rate": 0.0,
+      "precision": 1.0,
+      "recall": 1.0
+    }
+  },
+  "threshold": 0.070518,
+  "train": {
+    "brier": 0.024201,
+    "counts": {
+      "fn": 0,
+      "fp": 125,
+      "tn": 378,
+      "tp": 129
+    },
+    "expected_calibration_error": 0.086725,
+    "f1": 0.6736,
+    "false_alarm_rate": 0.2485,
+    "positives": 129,
+    "precision": 0.5079,
+    "recall": 1.0,
+    "recall_by_edge_case": {
+      "EC-ACQ-05": {
+        "detected": 1,
+        "positives": 1,
+        "recall": 1.0
+      },
+      "EC-ALIAS-01": {
+        "detected": 2,
+        "positives": 2,
+        "recall": 1.0
+      },
+      "EC-ALIAS-03": {
+        "detected": 1,
+        "positives": 1,
+        "recall": 1.0
+      },
+      "EC-ASYNC-04": {
+        "detected": 1,
+        "positives": 1,
+        "recall": 1.0
+      },
+      "EC-CF-01": {
+        "detected": 33,
+        "positives": 33,
+        "recall": 1.0
+      },
+      "EC-CF-02": {
+        "detected": 32,
+        "positives": 32,
+        "recall": 1.0
+      },
+      "EC-CF-03": {
+        "detected": 42,
+        "positives": 42,
+        "recall": 1.0
+      },
+      "EC-CF-09": {
+        "detected": 35,
+        "positives": 35,
+        "recall": 1.0
+      },
+      "EC-CF-12": {
+        "detected": 44,
+        "positives": 44,
+        "recall": 1.0
+      },
+      "EC-CF-21": {
+        "detected": 42,
+        "positives": 42,
+        "recall": 1.0
+      },
+      "EC-CTX-05": {
+        "detected": 1,
+        "positives": 1,
+        "recall": 1.0
+      },
+      "EC-CTX-10": {
+        "detected": 2,
+        "positives": 2,
+        "recall": 1.0
+      },
+      "EC-DB-01": {
+        "detected": 3,
+        "positives": 3,
+        "recall": 1.0
+      }
+    },
+    "recall_by_operator": {
+      "M12_close_wrong_handle": {
+        "detected": 1,
+        "positives": 1,
+        "recall": 1.0
+      },
+      "M13_finally_to_pass": {
+        "detected": 10,
+        "positives": 10,
+        "recall": 1.0
+      },
+      "M14_ctx_manager_swap": {
+        "detected": 3,
+        "positives": 3,
+        "recall": 1.0
+      },
+      "M1_with_to_bare": {
+        "detected": 1,
+        "positives": 1,
+        "recall": 1.0
+      },
+      "M2_delete_branch_close": {
+        "detected": 42,
+        "positives": 42,
+        "recall": 1.0
+      },
+      "M3_insert_early_return": {
+        "detected": 33,
+        "positives": 33,
+        "recall": 1.0
+      },
+      "M4_close_into_try": {
+        "detected": 35,
+        "positives": 35,
+        "recall": 1.0
+      },
+      "M6_reassign_before_close": {
+        "detected": 2,
+        "positives": 2,
+        "recall": 1.0
+      },
+      "M8_async_close_removal": {
+        "detected": 1,
+        "positives": 1,
+        "recall": 1.0
+      },
+      "M9_exitstack_to_bare": {
+        "detected": 1,
+        "positives": 1,
+        "recall": 1.0
+      }
+    },
+    "rows": 632,
+    "rules_only_baseline": {
+      "counts": {
+        "fn": 1,
+        "fp": 0,
+        "tn": 503,
+        "tp": 128
+      },
+      "f1": 0.9961,
+      "false_alarm_rate": 0.0,
+      "precision": 1.0,
+      "recall": 0.9922
+    }
+  },
+  "val": {
+    "brier": 0.031306,
+    "counts": {
+      "fn": 1,
+      "fp": 17,
+      "tn": 79,
+      "tp": 47
+    },
+    "expected_calibration_error": 0.081044,
+    "f1": 0.8393,
+    "false_alarm_rate": 0.1771,
+    "positives": 48,
+    "precision": 0.7344,
+    "recall": 0.9792,
+    "recall_by_edge_case": {
+      "EC-CF-01": {
+        "detected": 16,
+        "positives": 16,
+        "recall": 1.0
+      },
+      "EC-CF-02": {
+        "detected": 16,
+        "positives": 16,
+        "recall": 1.0
+      },
+      "EC-CF-09": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-CF-12": {
+        "detected": 31,
+        "positives": 31,
+        "recall": 1.0
+      },
+      "EC-OWN-05": {
+        "detected": 0,
+        "positives": 1,
+        "recall": 0.0
+      }
+    },
+    "recall_by_operator": {
+      "M10_remove_class_closer": {
+        "detected": 0,
+        "positives": 1,
+        "recall": 0.0
+      },
+      "M13_finally_to_pass": {
+        "detected": 7,
+        "positives": 7,
+        "recall": 1.0
+      },
+      "M3_insert_early_return": {
+        "detected": 16,
+        "positives": 16,
+        "recall": 1.0
+      },
+      "M4_close_into_try": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      }
+    },
+    "rows": 144,
+    "rules_only_baseline": {
+      "counts": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 96,
+        "tp": 48
+      },
+      "f1": 1.0,
+      "false_alarm_rate": 0.0,
+      "precision": 1.0,
+      "recall": 1.0
+    }
+  }
+}

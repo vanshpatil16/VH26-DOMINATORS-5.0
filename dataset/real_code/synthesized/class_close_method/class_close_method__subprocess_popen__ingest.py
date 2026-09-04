@@ -1,0 +1,15 @@
+"""An owner object that releases its handle in close()."""
+
+import subprocess
+
+
+class IngestSubprocessPopenClient:
+    def __init__(self, path=None, host=None, port=0, url=None, dsn=None, query=None, key=None, user=None, secret=None, sender=None, recipient=None, command=None, items=(), payload=None, worker=None):
+        self.process = subprocess.Popen(command, stdout=subprocess.PIPE)
+
+    def run(self, path=None, host=None, port=0, url=None, dsn=None, query=None, key=None, user=None, secret=None, sender=None, recipient=None, command=None, items=(), payload=None, worker=None):
+        payload = self.process.stdout.read()
+        return payload
+
+    def close(self):
+        self.process.wait()

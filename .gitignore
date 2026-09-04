@@ -1,0 +1,20 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.so
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Environments / builds
+.venv/
+venv/
+env/
+build/
+dist/
+
+# Cloned corpus sources are large and reproducible; never vendored
+corpus/repos/

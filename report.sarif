@@ -1,0 +1,127 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "LeakGuard",
+          "version": "0.1.0",
+          "informationUri": "https://github.com/codegate/leakguard",
+          "rules": [
+            {
+              "id": "LG-LEAK-01",
+              "name": "LGLEAK01",
+              "shortDescription": {
+                "text": "Deterministic Resource Leak"
+              },
+              "fullDescription": {
+                "text": "A resource is acquired and provably never closed along one or more reachable execution paths."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "A resource is acquired and provably never closed along one or more reachable execution paths.\nRemediation: Ensure resources are released on all exit paths using 'with' or 'finally'.",
+                "markdown": "### Deterministic Resource Leak\n\nA resource is acquired and provably never closed along one or more reachable execution paths.\n\n**Remediation:** Ensure resources are released on all exit paths using `with` or `finally`."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "reliability",
+                  "resource-leak",
+                  "cwe-775",
+                  "cwe-404"
+                ]
+              }
+            },
+            {
+              "id": "LG-LEAK-02",
+              "name": "LGLEAK02",
+              "shortDescription": {
+                "text": "High Confidence Probabilistic Resource Leak"
+              },
+              "fullDescription": {
+                "text": "Static path analysis and machine-learning confidence scoring indicate a high probability of resource leakage."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "Static path analysis and machine-learning confidence scoring indicate a high probability of resource leakage.\nRemediation: Ensure resources are released on all exit paths using 'with' or 'finally'.",
+                "markdown": "### High Confidence Probabilistic Resource Leak\n\nStatic path analysis and machine-learning confidence scoring indicate a high probability of resource leakage.\n\n**Remediation:** Ensure resources are released on all exit paths using `with` or `finally`."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "reliability",
+                  "resource-leak",
+                  "cwe-775",
+                  "cwe-404"
+                ]
+              }
+            },
+            {
+              "id": "LG-WARN-01",
+              "name": "LGWARN01",
+              "shortDescription": {
+                "text": "Exception Path Resource Leak"
+              },
+              "fullDescription": {
+                "text": "Resource is closed on normal execution paths but leaks if an unhandled exception is raised in between."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "help": {
+                "text": "Resource is closed on normal execution paths but leaks if an unhandled exception is raised in between.\nRemediation: Ensure resources are released on all exit paths using 'with' or 'finally'.",
+                "markdown": "### Exception Path Resource Leak\n\nResource is closed on normal execution paths but leaks if an unhandled exception is raised in between.\n\n**Remediation:** Ensure resources are released on all exit paths using `with` or `finally`."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "reliability",
+                  "resource-leak",
+                  "cwe-775",
+                  "cwe-404"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "LG-LEAK-01",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "Unclosed FILE resource 'f' acquired via 'open' (P(leak)=99.6%, Risk=1.00). Wrap 'open' in a 'with' block or ensure 'f.close()' executes on all exit paths.",
+            "markdown": "**LeakGuard Verdict:** `DEFINITE_LEAK` (Rule: `DEFINITE_LEAK`)\n- **Resource:** `open` (Type: `FILE`)\n- **Handle:** `f`\n- **Leak Probability P(leak):** `99.6%` | **Risk Score:** `1.00` (Exposure: `1.0`)\n\n**Explainable AI Evidence & Attributions:**\n- 4 of 5 exit paths reach an exit without close\n- a call that can raise sits between open and close\n- close exists but is not wrapped in finally/with\n- *Fraction of CFG exit paths where resource is unclosed*: `+6.26` log-odds contribution\n- *Potentially raising call sits between acquire and release*: `+1.68` log-odds contribution\n- *Close statement exists but is unguarded against exceptions*: `+0.47` log-odds contribution\n- *Registry blast-radius weight for resource type*: `+0.03` log-odds contribution\n\n**Fix Suggestion:** Wrap 'open' in a 'with' block or ensure 'f.close()' executes on all exit paths.\n- **Counterfactual Impact:** If wrapped in context manager, risk drops to `0.01`."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "dataset/mutated_code/handwritten/close_after_raise.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 4,
+                  "startColumn": 1
+                }
+              }
+            }
+          ],
+          "properties": {
+            "verdict": "DEFINITE_LEAK",
+            "p_leak": 0.9961,
+            "risk": 0.9961,
+            "exposure": 1.0,
+            "resource_type": "FILE"
+          }
+        }
+      ]
+    }
+  ]
+}

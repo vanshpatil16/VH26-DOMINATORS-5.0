@@ -1,0 +1,54 @@
+{
+  "bias": -3.62665129,
+  "feature_names": [
+    "leaking_path_fraction",
+    "escapes_return",
+    "escapes_self_attr",
+    "escapes_container",
+    "escapes_call_arg",
+    "callee_closes_param",
+    "close_present_but_unguarded",
+    "in_loop",
+    "raising_call_between",
+    "reassigned_before_close",
+    "resource_type_weight",
+    "is_test_or_script_file",
+    "is_async_resource",
+    "callee_name_suggests_close"
+  ],
+  "platt": {
+    "a": 1.21590437,
+    "b": -0.30212272
+  },
+  "threshold": {
+    "derivation": "split conformal on calibration negatives",
+    "max_false_alarm_rate": 0.05,
+    "value": 0.07051775
+  },
+  "training": {
+    "class_weighting": "balanced",
+    "l2": 1.0,
+    "optimizer": "IRLS",
+    "train_positives": 129,
+    "train_rows": 632,
+    "val_positives": 48,
+    "val_rows": 144
+  },
+  "version": 1,
+  "weights": {
+    "callee_closes_param": 0.0,
+    "callee_name_suggests_close": 0.0,
+    "close_present_but_unguarded": 0.46593339,
+    "escapes_call_arg": -0.08939973,
+    "escapes_container": -0.01616563,
+    "escapes_return": -0.01616563,
+    "escapes_self_attr": -0.76967666,
+    "in_loop": 1.15483079,
+    "is_async_resource": -0.89061501,
+    "is_test_or_script_file": 0.0,
+    "leaking_path_fraction": 7.82866254,
+    "raising_call_between": 1.67917215,
+    "reassigned_before_close": 0.02456445,
+    "resource_type_weight": 0.02503154
+  }
+}

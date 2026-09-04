@@ -1,0 +1,15 @@
+"""An owner object that releases its handle in close()."""
+
+import smtplib
+
+
+class BillingSmtpClient:
+    def __init__(self, path=None, host=None, port=0, url=None, dsn=None, query=None, key=None, user=None, secret=None, sender=None, recipient=None, command=None, items=(), payload=None, worker=None):
+        self.client = smtplib.SMTP(host, 25)
+
+    def run(self, path=None, host=None, port=0, url=None, dsn=None, query=None, key=None, user=None, secret=None, sender=None, recipient=None, command=None, items=(), payload=None, worker=None):
+        self.client.sendmail(sender, recipient, payload)
+        return payload
+
+    def close(self):
+        self.client.close()

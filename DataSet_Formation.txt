@@ -1,0 +1,2084 @@
+ ▐▛███▛█   Claude Code v2.1.259
+▝▜██████▀  Opus 5 · Claude Pro
+  ▝▝ ▝▝    C:\CodeGate
+
+
+> @LEAKGUARD_SPEC.md start with dataset creation containg Real code folder and  
+  Mutable code folder for model training containing all the data necessary for  
+  model training and make edge_cases.md in multable that tells which on which   
+  edge cases have we mutated and reseach on all possible edge cases for leak    
+  detection.everything should be in python                                      
+  ⎿  Read LEAKGUARD_SPEC.md (700 lines)
+
+● I'll start by checking the environment, then build the dataset pipeline.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Facts before first command
+
+  1. Request: Build the LeakGuard training dataset — a "real code" folder
+     (correct/safe resource handling) and a "mutated code" folder (AST-mutated
+     leaks) with everything needed for model training, plus edge_cases.md in the
+     mutated folder documenting which leak-detection edge cases were mutated,
+     backed by research into all plausible leak-detection edge cases. All in
+     Python.
+  2. This command verifies: the working directory contents (greenfield check),
+     the available Python interpreter and version (ast.unparse needs ≥ 3.9 for
+     the mutation engine), and whether git is present.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Python 3.13.5 — ast.unparse is available. Scaffolding now.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Now the core analyzer package that the dataset pipeline depends on. Starting
+  with the resource registry.
+
+  Read 1 file, ran 2 shell commands (ctrl+o to expand)
+
+● The Bash tool's wrapper breaks on literal single quotes in heredocs (parse
+  error at the "\"'" line), so I'll use the Write tool for Python sources.
+
+● Write(leakguard\registry.py)
+  ⎿  Error: [Fact-Forcing Gate]
+
+     Before creating C:\CodeGate\leakguard\registry.py, present these facts:
+
+     1. Name the file(s) and line(s) that will call this new file
+     2. Confirm no existing file serves the same purpose (use Glob)
+     3. If this file reads/writes data files, show field names, structure, and 
+     date format (use redacted or synthetic values, not raw production data)
+     4. Quote the user's current instruction verbatim
+
+     Present the facts, then retry the same operation.
+     … +2 lines (ctrl+o to expand)
+
+● Facts before creating C:\CodeGate\leakguard\registry.py
+
+  1. Who will call it: leakguard/detector.py (import of Registry,
+     collect_aliases, dotted_name), leakguard/features.py (resource_type_weight,
+     suggests_close), tools/mutate.py (open-site discovery),
+     tools/extract_features.py. Those files do not exist yet — this is the first
+     module of a greenfield build, written bottom-up so each caller lands after
+     its dependency.
+  2. No existing file serves this purpose: the repo contained only
+     LEAKGUARD_SPEC.md before this session (ls -la above); find . -type d
+     confirms leakguard/ holds only __init__.py and resources.yaml.
+  3. Data files read: leakguard/resources.yaml only. Structure — a top-level
+     resources: list of flow mappings with fields call (str, dotted acquisition
+     name), type (str enum:
+     FILE/FD/SOCKET/SESSION/DB/PROCESS/POOL/LOCK/MMAP/ASYNC_*), close (list of
+     str method names), weight (float), async (bool, optional). Synthetic
+     example row: - {call: "sqlite3.connect", type: DB, close: ["close"], 
+     weight: 3.0}. No dates, no production data. Writes nothing.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python"
+
+● Write(leakguard\registry.py)
+  ⎿  Wrote 255 lines to leakguard\registry.py
+       1 """Resource registry: the deterministic answer to "what is a res
+       2 
+       3 The registry is data, never a prediction. `resources.yaml` is th
+         e single source
+         with a tiny
+       5 flow-mapping parser so that LeakGuard keeps a zero-dependency in
+       6 """
+       7 
+       8 from __future__ import annotations
+      10 import ast
+     … +275 lines (ctrl+o to expand)
+
+● Update(leakguard\registry.py)
+  ⎿  Added 5 lines
+      38      close: Tuple[str, ...]
+      39      weight: float = 1.0
+      40      is_async: bool = False
+      41 +    # Does `with <acquire>() as x:` actually release the resour
+         +ce?                                                            
+      42 +    # False for DBAPI connections: `with sqlite3.connect(p) as 
+         +conn` is a                                                     
+      43 +    # *transaction* context manager and leaves the connection o
+         +pen. This single                                               
+      44 +    # flag is one of the highest-value edge cases in the whole 
+         +registry.                                                      
+      45 +    ctx_closes: bool = True                                    
+      46  
+      47      @property
+      48      def base_name(self) -> str:
+
+● Update(leakguard\registry.py)
+  ⎿  Added 1 line
+      154                  close=tuple(rec.get("close") or ("close",)),
+      155                  weight=float(rec.get("weight", 1.0)),
+      156                  is_async=bool(rec.get("async", False)),
+      157 +                ctx_closes=bool(rec.get("ctx_closes", True)), 
+      158              )
+      159          )
+      160      return specs
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Facts before creating C:\CodeGate\leakguard\pathmodel.py
+
+  1. Who will call it: leakguard/detector.py (per-function scope enumeration),
+     leakguard/features.py (leaking_path_fraction, escape flags,
+     raising_call_between, reassigned_before_close), and
+     tools/extract_features.py via those.
+  2. No existing file serves this purpose: leakguard/ currently holds
+     __init__.py, resources.yaml, registry.py only — no path/CFG module exists
+     (find output above).
+  3. Data files: none read or written; it is a pure AST → path-set transform.
+     Its in-memory record is Event(kind, handle, line, detail, owner) where kind
+     ∈ {open, close, stack_close, escape, reassign, raising_call}, plus
+     Path(events, term, line) with term ∈ {fall, return, raise, break, continue,
+     abandon, process_exit}. No dates.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python"
+
+● Write(leakguard\pathmodel.py)
+  ⎿  Error: [Fact-Forcing Gate]
+
+     Before creating C:\CodeGate\leakguard\pathmodel.py, present these facts:
+
+     1. Name the file(s) and line(s) that will call this new file
+     2. Confirm no existing file serves the same purpose (use Glob)
+     3. If this file reads/writes data files, show field names, structure, and 
+     date format (use redacted or synthetic values, not raw production data)
+     4. Quote the user's current instruction verbatim
+
+     Present the facts, then retry the same operation.
+     … +2 lines (ctrl+o to expand)
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Facts before creating C:\CodeGate\leakguard\pathmodel.py
+
+  1. Callers: leakguard/detector.py (calls enumerate_scope_paths,
+     build_scope_context), leakguard/features.py (calls analyse_handle for
+     leaking_path_fraction, escape flags, raising_call_between,
+     reassigned_before_close), and tools/extract_features.py transitively. None
+     exist yet — bottom-up greenfield build.
+  2. No duplicate: Glob **/*.py above returns exactly leakguard\__init__.py and
+     leakguard\registry.py. No path/CFG module exists.
+  3. Data files: none read or written. Pure AST→path-set transform. In-memory
+     records only: Event(kind, handle, line, detail, owner) with kind ∈ {open, 
+     close, stack_close, escape, reassign, raising_call}; Path(events, term, 
+     line) with term ∈ {fall, return, raise, break, continue, abandon, 
+     process_exit}; HandleOutcome(total, leaking, closed, escaping, 
+     escape_kinds, orphaned_by_reassign, raising_call_between, closed_anywhere, 
+     close_lines). No dates, no external data.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python"
+
+● Write(leakguard\pathmodel.py)
+  ⎿  Wrote 800 lines to leakguard\pathmodel.py
+       1 """Structured path enumeration — the poor man's CFG.
+       3 `LEAKGUARD_SPEC.md` phase P0-c builds a real basic-block CFG. Th
+         e dataset
+         this module
+         models the same
+       6 edge kinds the CFG will (NORMAL / TRUE / FALSE / EXCEPT / FINALL
+       7 BREAK / CONTINUE / RETURN / RAISE) and is designed to be swapped
+          out for, or
+       9 
+         ing downstream
+     … +935 lines (ctrl+o to expand)
+
+● Now the detector that turns a module into annotated open-sites.
+
+● Write(leakguard\detector.py)
+  ⎿  Error: [Fact-Forcing Gate]
+
+     Before creating C:\CodeGate\leakguard\detector.py, present these facts:
+
+     1. Name the file(s) and line(s) that will call this new file
+     2. Confirm no existing file serves the same purpose (use Glob)
+     3. If this file reads/writes data files, show field names, structure, and 
+     date format (use redacted or synthetic values, not raw production data)
+     4. Quote the user's current instruction verbatim
+
+     Present the facts, then retry the same operation.
+     … +2 lines (ctrl+o to expand)
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Facts before creating C:\CodeGate\leakguard\detector.py
+
+  1. Callers: leakguard/features.py (calls analyse_module to get OpenSite
+     records), tools/extract_features.py (per-corpus-file analysis),
+     tools/verify_dataset.py (label sanity check), later leakguard/cli.py.
+  2. No duplicate: Glob leakguard/*.py returns __init__.py, registry.py,
+     pathmodel.py only — no detector exists.
+  3. Data files: reads .py corpus source files as UTF-8 text via
+     analyse_file(path); writes nothing. In-memory record OpenSite(file, line, 
+     handle, call, resource_type, weight, is_async, scope, class_name, in_loop, 
+     in_try, in_with, in_finally, decorators, outcome, escape_callees, 
+     class_closes_attr, is_test_or_script, path_truncated); example synthetic
+     row: OpenSite(file="dataset/real_code/handwritten/files/a1.py", line=12, 
+     handle="fh", call="open", resource_type="FILE", weight=1.0, ...). No dates.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python"
+
+● Write(leakguard\detector.py)
+  ⎿  Wrote 388 lines to leakguard\detector.py
+       1 """Open-site detection and per-site path verdicts.
+       3 Everything here is AST-driven. There is no regex over source tex
+         t anywhere in
+         cstring that
+       5 says "remember to call f.close()") a non-event.
+       7 The detector produces one `OpenSite` per resource acquisition, d
+         ecorated with
+         arding `finally`
+       9 blocks, enclosing class ownership, route decorators) plus the pa
+      10 `HandleOutcome` from `pathmodel`.
+     … +434 lines (ctrl+o to expand)
+
+● Quick smoke test of the path model against known-safe and known-leaky
+  snippets.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Several real bugs surfaced. Fixing the return-escape over-approximation,
+  unbound (temp) open-sites, and the intra-class no-closer rule.
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 79 lines, removed 10 lines
+      252  # ------------------------------------------------------------
+           --------------- #
+      253  
+      254  
+      255 -def expression_events(node: ast.AST, ctx: ScopeContext, line: 
+          -int) -> List[Event]:                                          
+      256 -    """Events produced by evaluating an arbitrary expression."
+          -""                                                            
+      257 -    events: List[Event] = []                                  
+      255 +def temp_handle(call: ast.Call) -> str:                       
+      256 +    """Synthetic handle for an open-site that is never bound t
+          +o a name."""                                                  
+      257 +    return "<temp@%d:%d>" % (getattr(call, "lineno", 0), getat
+          +tr(call, "col_offset", 0))                                    
+      258 +                                                              
+      259 +                                                              
+      260 +def escaping_names(node: Optional[ast.AST], ctx: ScopeContext)
+          + -> List[str]:                                                
+      261 +    """Handles that the *value* of an expression hands to the 
+          +caller.                                                       
+      262 +                                                              
+      263 +    `return fh` escapes; `return fh.read()` does not. Getting 
+          +this wrong turns                                              
+      264 +    every correct read-and-return helper into an UNKNOWN.     
+      265 +    """                                                       
+      266 +    inner = unwrap(node)                                      
+      267 +    if inner is None:                                         
+      268 +        return []                                             
+      269 +    if isinstance(inner, (ast.Name, ast.Attribute)):          
+      270 +        name = target_name(inner)                             
+      271 +        return [name] if name and name in ctx.handles else [] 
+      272 +    if isinstance(inner, (ast.Tuple, ast.List, ast.Set)):     
+      273 +        out: List[str] = []                                   
+      274 +        for elt in inner.elts:                                
+      275 +            out.extend(escaping_names(elt, ctx))              
+      276 +        return out                                            
+      277 +    if isinstance(inner, ast.Dict):                           
+      278 +        out = []                                              
+      279 +        for value in inner.values:                            
+      280 +            out.extend(escaping_names(value, ctx))            
+      281 +        return out                                            
+      282 +    if isinstance(inner, ast.IfExp):                          
+      283 +        return escaping_names(inner.body, ctx) + escaping_name
+          +s(inner.orelse, ctx)                                          
+      284 +    return []                                                 
+      285 +                                                              
+      286 +                                                              
+      287 +def expression_events(                                        
+      288 +    node: ast.AST,                                            
+      289 +    ctx: ScopeContext,                                        
+      290 +    line: int,                                                
+      291 +    skip_calls: Optional[Set[int]] = None,                    
+      292 +) -> List[Event]:                                             
+      293 +    """Events produced by evaluating an arbitrary expression. 
+      294 +                                                              
+      295 +    `skip_calls` holds the ids of resource calls the caller ha
+          +s already bound to                                            
+      296 +    a named handle, so `f = open(p)` does not also register a 
+          +temp open-site.                                               
+      297 +    Unbound acquisitions such as a bare `subprocess.Popen(cmd)
+          +` statement or                                                
+      298 +    `json.load(open(p))` DO become temp open-sites — they are 
+          +exactly the leaks                                             
+      299 +    a name-based tracker misses.                              
+      300 +    """                                                       
+      301 +    skip = skip_calls or set()                                
+      302 +    opens: List[Event] = []                                   
+      303 +    rest: List[Event] = []                                    
+      304      for sub in ast.walk(node):
+      305          if not isinstance(sub, ast.Call):
+      306              continue
+     ...
+      308  
+      309          closed = _is_closer_call(sub, ctx)
+      310          if closed:
+      265 -            events.append(Event("close", closed[0], sub_line, 
+          -detail=closed[1]))                                            
+      311 +            rest.append(Event("close", closed[0], sub_line, de
+          +tail=closed[1]))                                              
+      312              continue
+      313  
+      314          stack_var = _stack_close(sub, ctx)
+      315          if stack_var:
+      270 -            events.append(Event("stack_close", None, sub_line,
+          - owner=stack_var))                                            
+      316 +            rest.append(Event("stack_close", None, sub_line, o
+          +wner=stack_var))                                              
+      317              continue
+      318  
+      319          deferred = _deferred_close(sub, ctx)
+      320          if deferred:
+      275 -            events.append(Event("close", deferred, sub_line, d
+          -etail="deferred"))                                            
+      321 +            rest.append(Event("close", deferred, sub_line, det
+          +ail="deferred"))                                              
+      322              continue
+      323  
+      324 +        # An unbound acquisition becomes a temp open-site.    
+      325 +        if id(sub) not in skip and not _stack_enter(sub, ctx):
+      326 +            spec = match_resource(sub, ctx)                   
+      327 +            if spec is not None:                              
+      328 +                temp = temp_handle(sub)                       
+      329 +                ctx.handles.add(temp)                         
+      330 +                ctx.specs.setdefault(temp, spec)              
+      331 +                opens.append(Event("open", temp, sub_line, det
+          +ail=spec.call))                                               
+      332 +                continue                                      
+      333 +                                                              
+      334          callee = resolve_call_name(sub, ctx.resolver) or "<dyn
+           amic>"
+      335          method = callee.rsplit(".", 1)[-1]
+      336          is_container_add = isinstance(sub.func, ast.Attribute)
+            and method in CONTAINER_ADDERS
+      337  
+      338          for arg in list(sub.args) + [kw.value for kw in sub.ke
+           ywords]:
+      283 -            name = target_name(unwrap(arg))                   
+      339 +            inner = unwrap(arg)                               
+      340 +            if isinstance(inner, ast.Call):                   
+      341 +                # `json.load(open(p))`: the temp handle escape
+          +s into the callee.                                            
+      342 +                if id(inner) not in skip and match_resource(in
+          +ner, ctx) is not None:                                        
+      343 +                    rest.append(                              
+      344 +                        Event(                                
+      345 +                            "escape",                         
+      346 +                            temp_handle(inner),               
+      347 +                            sub_line,                         
+      348 +                            detail="call_arg:" + callee,      
+      349 +                        )                                     
+      350 +                    )                                         
+      351 +                continue                                      
+      352 +            name = target_name(inner)                         
+      353              if name and name in ctx.handles:
+      354                  kind = "container" if is_container_add else "c
+           all_arg:" + callee
+      286 -                events.append(Event("escape", name, sub_line, 
+          -detail=kind))                                                 
+      355 +                rest.append(Event("escape", name, sub_line, de
+          +tail=kind))                                                   
+      356  
+      357          if _can_raise(sub, ctx):
+      289 -            events.append(Event("raising_call", None, sub_line
+          -, detail=callee))                                             
+      290 -    return events                                             
+      358 +            rest.append(Event("raising_call", None, sub_line, 
+          +detail=callee))                                               
+      359 +    return opens + rest                                       
+      360  
+      361  
+      362  def _open_binding(
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 3 lines, removed 1 line
+      404          openings = _open_binding(value, ctx) if value is not N
+           one else []
+      405  
+      406          if value is not None:
+      407 -            events.extend(expression_events(value, ctx, line))
+      407 +            events.extend(                                    
+      408 +                expression_events(value, ctx, line, {id(c) for
+          + c, _s, _o in openings})                                      
+      409 +            )                                                 
+      410          # Drop the generic raising_call for a pure open: if `o
+           pen()` raises no
+      411          # resource was acquired, so that path cannot leak.
+      412          if openings:
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 8 lines, removed 9 lines
+      431                  events.append(Event("escape", handle, line, de
+           tail="self_attr"))
+      432          # `self.fh = f` / `GLOBAL = f` escape an already-open 
+           handle.
+      433          if value is not None and not openings:
+      434 -            src = target_name(unwrap(value))                  
+      435 -            if src and src in ctx.handles:                    
+      434 +            for src in escaping_names(value, ctx):            
+      435                  for name in names:
+      436                      if name.startswith("self.") or name.isuppe
+           r():
+      437                          events.append(Event("escape", src, lin
+           e, detail="self_attr"))
+      438          # `bucket[key] = f` is a container escape.
+      439          for tgt in targets:
+      440              if isinstance(tgt, ast.Subscript) and value is not
+            None:
+      442 -                src = target_name(unwrap(value))              
+      443 -                if src and src in ctx.handles:                
+      441 +                for src in escaping_names(value, ctx):        
+      442                      events.append(Event("escape", src, line, d
+           etail="container"))
+      443  
+      444      elif isinstance(stmt, ast.Return):
+      445          if stmt.value is not None:
+      446              events.extend(expression_events(stmt.value, ctx, l
+           ine))
+      449 -            for sub in ast.walk(stmt.value):                  
+      450 -                if isinstance(sub, (ast.Name, ast.Attribute)):
+      451 -                    name = target_name(sub)                   
+      452 -                    if name and name in ctx.handles:          
+      453 -                        events.append(Event("escape", name, li
+          -ne, detail="return"))                                         
+      447 +            for name in escaping_names(stmt.value, ctx):      
+      448 +                events.append(Event("escape", name, line, deta
+          +il="return"))                                                 
+      449 +            # `return open(p)` hands the fresh handle straight
+          + to the caller.                                               
+      450 +            inner = unwrap(stmt.value)                        
+      451 +            if isinstance(inner, ast.Call) and match_resource(
+          +inner, ctx) is not None:                                      
+      452 +                events.append(Event("escape", temp_handle(inne
+          +r), line, detail="return"))                                   
+      453          term = TERM_RETURN
+      454  
+      455      elif isinstance(stmt, ast.Raise):
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 1 line, removed 2 lines
+      483          events.extend(expression_events(stmt.value, ctx, line)
+           )
+      484          for sub in ast.walk(stmt.value):
+      485              if isinstance(sub, (ast.Yield, ast.YieldFrom)) and
+            sub.value is not None:
+      486 -                name = target_name(sub.value)                 
+      487 -                if name and name in ctx.handles:              
+      486 +                for name in escaping_names(sub.value, ctx):   
+      487                      events.append(Event("escape", name, line, 
+           detail="yield"))
+      488          if _process_exit(stmt.value, ctx):
+      489              return [Path(tuple(events), TERM_EXIT, line)]
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 3 lines, removed 1 line
+      498      # EXCEPT edge: this statement may raise before the next on
+           e runs.
+      499      if term == TERM_FALL and not any(e.kind in ("close", "stac
+           k_close") for e in events):
+      500          if _can_raise(stmt, ctx) and ctx.can_split_raise():
+      501 -            pre = tuple(e for e in events if e.kind == "raisin
+          -g_call")                                                      
+      501 +            # The callee already received the handle before it
+          + raised, so the                                               
+      502 +            # escape survives; the acquisition itself does not
+          +.                                                             
+      503 +            pre = tuple(e for e in events if e.kind in ("raisi
+          +ng_call", "escape"))                                          
+      504              paths.append(Path(pre, TERM_RAISE, line))
+      505  
+      506      # A generator that is never resumed abandons everything he
+           ld at the yield.
+
+● Update(leakguard\detector.py)
+  ⎿  Added 20 lines
+      173      return owned
+      174  
+      175  
+      176 +def collect_class_closer_methods(tree: ast.AST) -> Dict[str, S
+          +et[str]]:                                                     
+      177 +    """class name -> the closer-shaped methods it defines (pos
+          +sibly empty).                                                 
+      178 +                                                              
+      179 +    A class with a `close()` that releases something *else* is
+          + a different                                                  
+      180 +    situation from a class with no lifecycle method at all, an
+          +d the model gets                                              
+      181 +    to see both.                                              
+      182 +    """                                                       
+      183 +    methods: Dict[str, Set[str]] = {}                         
+      184 +    for node in ast.walk(tree):                               
+      185 +        if not isinstance(node, ast.ClassDef):                
+      186 +            continue                                          
+      187 +        methods[node.name] = {                                
+      188 +            item.name                                         
+      189 +            for item in node.body                             
+      190 +            if isinstance(item, (ast.FunctionDef, ast.AsyncFun
+          +ctionDef))                                                    
+      191 +            and item.name in OWNER_CLOSER_METHODS             
+      192 +        }                                                     
+      193 +    return methods                                            
+      194 +                                                              
+      195 +                                                              
+      196  def collect_function_summaries(tree: ast.AST) -> Dict[str, Set
+           [str]]:
+      197      """function name -> parameter names it closes.
+      198  
+
+● Update(leakguard\detector.py)
+  ⎿  Added 9 lines
+      252      outcome: HandleOutcome
+      253      escape_callees: Tuple[str, ...]
+      254      class_closes_attr: bool
+      255 +    class_has_any_closer: bool                                
+      256      callee_closes_param: bool
+      257      is_test_or_script: bool
+      258      path_truncated: bool
+     ...
+      266          return is_route_decorated(self.decorators)
+      267  
+      268      @property
+      269 +    def is_owned_attribute(self) -> bool:                     
+      270 +        return bool(self.class_name) and self.handle.startswit
+          +h("self.")                                                    
+      271 +                                                              
+      272 +    @property                                                 
+      273      def verdict(self) -> str:
+      274          """Rules-only verdict. UNKNOWN is a first-class answer
+           , never promoted."""
+      275          if self.class_closes_attr or self.callee_closes_param:
+      276              return VERDICT_SAFE
+      277 +        # Intra-class ownership (spec 5b): an attribute nothin
+          +g in the class                                                
+      278 +        # ever releases is the high-value leak pylint and leak
+          +audit both miss.                                              
+      279 +        if self.is_owned_attribute:                           
+      280 +            return VERDICT_LEAK                               
+      281          if self.outcome.escape_kinds:
+      282              return VERDICT_UNKNOWN
+      283          if self.outcome.leaking > 0:
+
+● Update(leakguard\detector.py)
+  ⎿  Added 1 line
+      356      resolver: ImportResolver = collect_aliases(tree)
+      357      static = collect_static_context(tree)
+      358      ownership = collect_class_ownership(tree)
+      359 +    closer_methods = collect_class_closer_methods(tree)       
+      360      summaries = collect_function_summaries(tree)
+      361      test_or_script = is_test_or_script_path(filename, static.h
+           as_main_guard)
+      362  
+
+● Update(leakguard\detector.py)
+  ⎿  Added 1 line
+      403                      outcome=outcome,
+      404                      escape_callees=callees,
+      405                      class_closes_attr=class_closes,
+      406 +                    class_has_any_closer=bool(closer_methods.g
+          +et(class_name or "", set())),                                 
+      407                      callee_closes_param=closes_param,
+      408                      is_test_or_script=test_or_script,
+      409                      path_truncated=scope_ctx.truncated,
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(leakguard\detector.py)
+  ⎿  Added 2 lines
+      250      in_finally: bool
+      251      decorators: Tuple[str, ...]
+      252      outcome: HandleOutcome
+      253 +    close_lines: Tuple[int, ...]                              
+      254 +    close_guarded: bool                                       
+      255      escape_callees: Tuple[str, ...]
+      256      class_closes_attr: bool
+      257      class_has_any_closer: bool
+
+● Update(leakguard\detector.py)
+  ⎿  Added 5 lines
+      403                      in_finally=line in static.finally_lines,
+      404                      decorators=_decorator_names(scope_node),
+      405                      outcome=outcome,
+      406 +                    close_lines=tuple(sorted(outcome.close_lin
+          +es)),                                                         
+      407 +                    close_guarded=any(                        
+      408 +                        cl in static.finally_lines or cl in st
+          +atic.with_lines                                               
+      409 +                        for cl in outcome.close_lines         
+      410 +                    ),                                        
+      411                      escape_callees=callees,
+      412                      class_closes_attr=class_closes,
+      413                      class_has_any_closer=bool(closer_methods.g
+           et(class_name or "", set())),
+
+● Now the feature extractor — the 14 deterministic features from the spec.
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Facts before creating C:\CodeGate\leakguard\features.py
+
+  1. Callers: tools/extract_features.py (builds dataset/features/features.jsonl
+     + .csv), tools/build_dataset.py (orchestration), and later
+     leakguard/model.py at scan time.
+  2. No duplicate: Glob leakguard/*.py → __init__.py, registry.py, pathmodel.py,
+     detector.py. No feature module exists.
+  3. Data files: writes nothing itself; it returns a FeatureVector. The consumer
+     serialises it to dataset/features/features.jsonl, one JSON object per
+     open-site with keys: sample_id (str), file (str, repo-relative POSIX path),
+     line (int), handle (str), label (int 0/1), split (str), family (str),
+     operator (str or null), edge_cases (list[str]), plus the 14 float feature
+     columns named in FEATURE_NAMES. Synthetic row:
+     {"sample_id":"m0001","file":"dataset/mutated_code/generated/M3/x.py","line"
+     :12,"label":1,"leaking_path_fraction":0.5,...}. No date fields anywhere in
+     the dataset.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python"
+
+● Write(leakguard\features.py)
+  ⎿  Error: [Fact-Forcing Gate]
+
+     Before creating C:\CodeGate\leakguard\features.py, present these facts:
+
+     1. Name the file(s) and line(s) that will call this new file
+     2. Confirm no existing file serves the same purpose (use Glob)
+     3. If this file reads/writes data files, show field names, structure, and 
+     date format (use redacted or synthetic values, not raw production data)
+     4. Quote the user's current instruction verbatim
+
+     Present the facts, then retry the same operation.
+     … +2 lines (ctrl+o to expand)
+
+● Facts (re-presented) before creating C:\CodeGate\leakguard\features.py
+
+  1. Callers: tools/extract_features.py → dataset/features/features.jsonl/.csv;
+     tools/build_dataset.py; later leakguard/model.py.
+  2. No duplicate: Glob leakguard/*.py (previous call) returned exactly
+     __init__.py, registry.py, pathmodel.py, detector.py — no features module.
+  3. Data files: this module writes none. It returns FeatureVector(site, 
+     values); consumers serialise values under the 14 keys in FEATURE_NAMES.
+     Synthetic serialised row: {"sample_id":"m0001","file":"dataset/mutated_code
+     /generated/M3/sample.py","line":12,"label":1,"leaking_path_fraction":0.5,"e
+     scapes_return":0.0,"resource_type_weight":3.0}. No date fields.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python"
+
+● Write(leakguard\features.py)
+  ⎿  Wrote 128 lines to leakguard\features.py
+       1 """The 14-dimensional feature vector from LEAKGUARD_SPEC.md sect
+       2 
+         st always
+       4 produce the same vector, and therefore the same verdict. Nothing
+       5 a model, the network, or the clock.
+       7 The vector feeds a logistic regression, so each dimension has to
+       8 individually explainable — the report prints one evidence line p
+         er non-zero
+         X if the site
+         ped.
+     … +152 lines (ctrl+o to expand)
+
+> make model folder for model training                                          
+
+● Noted — I'll add a model/ folder for training once the dataset is in place.
+  Continuing with the corpus tooling.
+
+  Facts before creating C:\CodeGate\tools\corpus_lib.py
+
+  1. Callers: tools/seed_real_code.py, tools/seed_mutated_code.py,
+     tools/synthesize.py, tools/mutate.py, tools/build_dataset.py,
+     tools/extract_features.py.
+  2. No duplicate: tools/ is empty (created by mkdir -p earlier; Glob **/*.py
+     returned only leakguard/*.py).
+  3. Data files written: dataset/**/manifest.jsonl and dataset/manifest.jsonl,
+     one JSON object per line with fields sample_id (str), path (str, POSIX
+     repo-relative), folder ("real_code"|"mutated_code"), origin
+     ("handwritten"|"synthesized"|"generated"), family (str group key used for
+     the split), label (int 0/1), operator (str|null), derived_from (str|null),
+     edge_cases (list[str] of EC-* ids), expected_leak_lines (list[int]),
+     resource_types (list[str]), note (str). Synthetic row: {"sample_id":"R-CTX-
+     001","path":"dataset/real_code/handwritten/contextlib_patterns/a01_exitstac
+     k.py","folder":"real_code","origin":"handwritten","family":"contextlib_patt
+     erns","label":0,"operator":null,"derived_from":null,"edge_cases":["EC-CTX-0
+     1"],"expected_leak_lines":[],"resource_types":["FILE"],"note":"ExitStack 
+     registration is not a leak"}. No date fields — the dataset is deliberately
+     timestamp-free so rebuilds are byte-identical.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python" (plus the follow-up: "make model folder for model training")
+
+● Write(tools\corpus_lib.py)
+  ⎿  Error: [Fact-Forcing Gate]
+
+     Before creating C:\CodeGate\tools\corpus_lib.py, present these facts:
+
+     1. Name the file(s) and line(s) that will call this new file
+     2. Confirm no existing file serves the same purpose (use Glob)
+     3. If this file reads/writes data files, show field names, structure, and 
+     date format (use redacted or synthetic values, not raw production data)
+     4. Quote the user's current instruction verbatim
+
+     Present the facts, then retry the same operation.
+     … +2 lines (ctrl+o to expand)
+
+● Facts (re-presented) — C:\CodeGate\tools\corpus_lib.py
+
+  1. Callers: tools/seed_real_code.py, tools/seed_mutated_code.py,
+     tools/synthesize.py, tools/mutate.py, tools/build_dataset.py,
+     tools/extract_features.py.
+  2. No duplicate: Glob **/*.py earlier returned only leakguard/*.py; tools/
+     contains no files.
+  3. Data written: dataset/**/manifest.jsonl — one JSON object per line, fields
+     sample_id, path, folder, origin, family, label, operator, derived_from, 
+     edge_cases, expected_leak_lines, expected_unknown_lines, resource_types, 
+     note, source_sha1. Synthetic row:
+     {"sample_id":"R-CTX-001","path":"dataset/real_code/handwritten/contextlib_p
+     atterns/a01_exitstack.py","folder":"real_code","origin":"handwritten","fami
+     ly":"contextlib_patterns","label":0,"operator":null,"derived_from":null,"ed
+     ge_cases":["EC-CTX-01"],"expected_leak_lines":[],"expected_unknown_lines":[
+     ],"resource_types":["FILE"],"note":"registration is not a 
+     leak","source_sha1":"da39a3ee..."}. No date fields at all — timestamp-free
+     by design so rebuilds are byte-identical.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python" + "make model folder for model training"
+
+● Write(tools\corpus_lib.py)
+  ⎿  Wrote 213 lines to tools\corpus_lib.py
+       1 """Shared plumbing for building the LeakGuard corpus.
+       3 Design rules for the whole dataset pipeline:
+       4 
+         andomness.
+         ntical files.
+       7 * **Provenance-first.** Every sample carries where it came from 
+       8   mutant, exactly which line the mutation broke. That line *is* 
+         the label.
+         by family, never
+         ary is the
+     … +227 lines (ctrl+o to expand)
+
+● Now the hand-written "real code" corpus — 46 correct-handling samples,
+  including the adversarial looks-leaky-but-isn't set.
+
+● Write(tools\seed_real_code.py)  ⎿  Error: [Fact-Forcing Gate]
+
+     Before creating C:\CodeGate\tools\seed_real_code.py, present these facts:
+
+     1. Name the file(s) and line(s) that will call this new file
+     2. Confirm no existing file serves the same purpose (use Glob)
+     3. If this file reads/writes data files, show field names, structure, and 
+     date format (use redacted or synthetic values, not raw production data)
+     4. Quote the user's current instruction verbatim
+
+     Present the facts, then retry the same operation.
+     … +2 lines (ctrl+o to expand)
+
+● Facts — C:\CodeGate\tools\seed_real_code.py
+
+  1. Callers: tools/build_dataset.py (pipeline step 1); also runnable directly
+     as python tools/seed_real_code.py.
+  2. No duplicate: tools/ contains only corpus_lib.py (created moments ago); no
+     seeder exists.
+  3. Data written: 46 .py corpus files under
+     dataset/real_code/handwritten/<category>/ plus
+     dataset/real_code/handwritten/manifest.jsonl (schema exactly as declared
+     for corpus_lib.Sample: sample_id, path, folder, origin, family, label, 
+     operator, derived_from, edge_cases, expected_leak_lines, 
+     expected_unknown_lines, resource_types, note, source_sha1). Synthetic row:
+     {"sample_id":"R-001","path":"dataset/real_code/handwritten/files/with_basic
+     .py","folder":"real_code","origin":"handwritten","family":"real:files:with_
+     basic","label":0,"operator":null,"derived_from":null,"edge_cases":["EC-CTX-
+     01"],"expected_leak_lines":[],"expected_unknown_lines":[],"resource_types":
+     ["FILE"],"note":"canonical with-statement","source_sha1":"<40 hex>"}. No 
+     date fields.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python" + "make model folder for model training"
+
+● Write(tools\seed_real_code.py)
+  ⎿  Wrote 918 lines to tools\seed_real_code.py
+       1 """Seed `dataset/real_code/handwritten/` — correct resource hand
+       2 
+       3 These are the negatives, and about half of them are deliberately
+       4 code that reads as leaky in plain text but is provably fine. LEA
+       5 section 8 warns that a judge will probe with exactly this, and e
+         very false
+       7 
+       8 Samples whose correct verdict is UNKNOWN rather than SAFE (the h
+       9 so ownership moves to the caller) carry an inline `expect-unknow
+      10 are still label 0: no leak exists in the file.
+     … +1020 lines (ctrl+o to expand)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● The validation is doing its job. Fixing six real analyzer bugs it exposed.
+
+● Update(leakguard\registry.py)
+  ⎿  Added 5 lines
+      43      # *transaction* context manager and leaves the connection o
+          pen. This single
+      44      # flag is one of the highest-value edge cases in the whole 
+          registry.
+      45      ctx_closes: bool = True
+      46 +    # Some resources are not acquired by their constructor. `th
+         +reading.Lock()`                                                
+      47 +    # allocates nothing; the acquisition is `lock.acquire()` an
+         +d the release is                                               
+      48 +    # `lock.release()`. Entries with `acquired_by` set are neve
+         +r matched as                                                   
+      49 +    # constructor open-sites.                                  
+      50 +    acquired_by: str = ""                                      
+      51  
+      52      @property
+      53      def base_name(self) -> str:
+
+● Update(leakguard\registry.py)
+  ⎿  Added 1 line
+      160                  weight=float(rec.get("weight", 1.0)),
+      161                  is_async=bool(rec.get("async", False)),
+      162                  ctx_closes=bool(rec.get("ctx_closes", True)),
+      163 +                acquired_by=str(rec.get("acquired_by") or ""),
+      164              )
+      165          )
+      166      return specs
+
+● Update(leakguard\registry.py)
+  ⎿  Added 5 lines, removed 2 lines
+      181      def lookup(self, dotted: str) -> Optional[ResourceSpec]:
+      182          if dotted in self.by_call:
+      183              return self.by_call[dotted]
+      184 -        # `pkg.vendor.socket.socket` -> try progressively shor
+          -ter suffixes.                                                 
+      184 +        # `pkg.vendor.socket.socket` -> try progressively shor
+          +ter suffixes, but                                             
+      185 +        # only ever match a DOTTED entry. Without that guard `
+          +valve.open()` on a                                            
+      186 +        # domain object matches the builtin `open` entry — a f
+          +alse positive the                                             
+      187 +        # adversarial corpus catches immediately.             
+      188          parts = dotted.split(".")
+      186 -        for start in range(1, len(parts)):                    
+      189 +        for start in range(1, len(parts) - 1):                
+      190              candidate = ".".join(parts[start:])
+      191              if candidate in self.by_call:
+      192                  return self.by_call[candidate]
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 11 lines
+      130      handles: Set[str] = field(default_factory=set)
+      131      stack_vars: Set[str] = field(default_factory=set)
+      132      specs: Dict[str, ResourceSpec] = field(default_factory=dic
+           t)
+      133 +    #: `reader, writer = await asyncio.open_connection(...)` y
+          +ields two names                                               
+      134 +    #: for one resource; closing either closes the acquisition
+          +.                                                             
+      135 +    aliases: Dict[str, str] = field(default_factory=dict)     
+      136 +    #: Names known to hold a lock-like object, so `x.acquire()
+          +` is an                                                       
+      137 +    #: acquisition and an unrelated `job.acquire()` is not.   
+      138 +    lock_objects: Set[str] = field(default_factory=set)       
+      139      suppress_abandon: bool = False
+      140      raise_splits: int = 0
+      141      truncated: bool = False
+      142  
+      143 +    def canon(self, name: Optional[str]) -> Optional[str]:    
+      144 +        if name is None:                                      
+      145 +            return None                                       
+      146 +        return self.aliases.get(name, name)                   
+      147 +                                                              
+      148      def can_split_raise(self) -> bool:
+      149          if self.raise_splits >= MAX_RAISE_SPLITS:
+      150              return False
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 23 lines, removed 1 line
+      162      return resolver.resolve(raw) if raw else None
+      163  
+      164  
+      165 +LOCK_NAME_HINT = ("lock", "mutex", "sem", "gate", "guard", "la
+          +tch", "barrier")                                              
+      166 +                                                              
+      167 +                                                              
+      168  def match_resource(call: ast.Call, ctx: ScopeContext) -> Optio
+           nal[ResourceSpec]:
+      169 +    """Registry match for a *constructor* acquisition."""     
+      170      name = resolve_call_name(call, ctx.resolver)
+      167 -    return ctx.registry.lookup(name) if name else None        
+      171 +    spec = ctx.registry.lookup(name) if name else None        
+      172 +    if spec is not None and spec.acquired_by:                 
+      173 +        return None  # `threading.Lock()` allocates nothing; `
+          +.acquire()` does                                              
+      174 +    return spec                                               
+      175  
+      176  
+      177 +def match_acquire(call: ast.Call, ctx: ScopeContext) -> Option
+          +al[Tuple[str, ResourceSpec]]:                                 
+      178 +    """`lock.acquire()` — the acquisition for release-style re
+          +sources."""                                                   
+      179 +    func = call.func                                          
+      180 +    if not isinstance(func, ast.Attribute) or func.attr != "ac
+          +quire":                                                       
+      181 +        return None                                           
+      182 +    owner = target_name(func.value)                           
+      183 +    if not owner:                                             
+      184 +        return None                                           
+      185 +    tail = owner.rsplit(".", 1)[-1].lower()                   
+      186 +    if owner not in ctx.lock_objects and not any(hint in tail 
+          +for hint in LOCK_NAME_HINT):                                  
+      187 +        return None                                           
+      188 +    spec = ctx.registry.lookup("threading.Lock")              
+      189 +    return (owner, spec) if spec else None                    
+      190 +                                                              
+      191 +                                                              
+      192  def unwrap(node: Optional[ast.AST]) -> Optional[ast.AST]:
+      193      """Strip `await` so `await aiofiles.open(p)` looks like a 
+           plain call."""
+      194      while isinstance(node, ast.Await):
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 1 line, removed 1 line
+      216              if handle and handle in ctx.handles:
+      217                  return handle, "os.close"
+      218          return None
+      219 -    owner = target_name(func.value)                           
+      219 +    owner = ctx.canon(target_name(func.value))                
+      220      if not owner or owner not in ctx.handles:
+      221          return None
+      222      spec = ctx.specs.get(owner)
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 17 lines, removed 3 lines
+      229  
+      230  
+      231  def _deferred_close(call: ast.Call, ctx: ScopeContext) -> Opti
+           onal[str]:
+      232 -    """`atexit.register(f.close)` / `weakref.finalize(o, f.clo
+          -se)`."""                                                      
+      232 +    """Cleanup registered now and guaranteed to run later.    
+      233 +                                                              
+      234 +    Covers `atexit.register(f.close)`, `weakref.finalize(o, f.
+          +close)` and                                                   
+      235 +    `stack.callback(f.close)` / `stack.push(f)` on an ExitStac
+          +k.                                                            
+      236 +    """                                                       
+      237      name = resolve_call_name(call, ctx.resolver)
+      234 -    if name not in DEFERRED_CLOSERS:                          
+      238 +    func = call.func                                          
+      239 +    on_stack = (                                              
+      240 +        isinstance(func, ast.Attribute)                       
+      241 +        and func.attr in ("callback", "push")                 
+      242 +        and target_name(func.value) in ctx.stack_vars         
+      243 +    )                                                         
+      244 +    if name not in DEFERRED_CLOSERS and not on_stack:         
+      245          return None
+      246      for arg in list(call.args) + [kw.value for kw in call.keyw
+           ords]:
+      247          if isinstance(arg, ast.Attribute) and arg.attr in GENE
+           RIC_CLOSERS:
+      238 -            owner = target_name(arg.value)                    
+      248 +            owner = ctx.canon(target_name(arg.value))         
+      249              if owner and owner in ctx.handles:
+      250                  return owner
+      251 +        if on_stack:                                          
+      252 +            owner = ctx.canon(target_name(arg))               
+      253 +            if owner and owner in ctx.handles:                
+      254 +                return owner                                  
+      255      return None
+      256  
+      257  
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 30 lines, removed 3 lines
+      345      `json.load(open(p))` DO become temp open-sites — they are 
+           exactly the leaks
+      346      a name-based tracker misses.
+      347      """
+      348 -    skip = skip_calls or set()                                
+      348 +    skip = set(skip_calls or ())                              
+      349      opens: List[Event] = []
+      350      rest: List[Event] = []
+      351      for sub in ast.walk(node):
+     ...
+      368              rest.append(Event("close", deferred, sub_line, det
+           ail="deferred"))
+      369              continue
+      370  
+      371 +        # `stack.enter_context(open(p))` anywhere, including i
+          +nside a                                                       
+      372 +        # comprehension: the stack takes ownership, it is not 
+          +an escape.                                                    
+      373 +        stack_owner = _stack_enter(sub, ctx)                  
+      374 +        if stack_owner:                                       
+      375 +            for arg in sub.args:                              
+      376 +                inner = unwrap(arg)                           
+      377 +                if isinstance(inner, ast.Call):               
+      378 +                    spec = match_resource(inner, ctx)         
+      379 +                    if spec is not None:                      
+      380 +                        temp = temp_handle(inner)             
+      381 +                        ctx.handles.add(temp)                 
+      382 +                        ctx.specs.setdefault(temp, spec)      
+      383 +                        opens.append(                         
+      384 +                            Event("open", temp, getattr(inner,
+          + "lineno", sub_line),                                         
+      385 +                                  detail=spec.call, owner=stac
+          +k_owner)                                                      
+      386 +                        )                                     
+      387 +                        skip.add(id(inner))                   
+      388 +            continue                                          
+      389 +                                                              
+      390 +        acquired = match_acquire(sub, ctx)                    
+      391 +        if acquired and id(sub) not in skip:                  
+      392 +            owner, spec = acquired                            
+      393 +            ctx.handles.add(owner)                            
+      394 +            ctx.specs.setdefault(owner, spec)                 
+      395 +            opens.append(Event("open", owner, sub_line, detail
+          +=spec.call))                                                  
+      396 +            continue                                          
+      397 +                                                              
+      398          # An unbound acquisition becomes a temp open-site.
+      372 -        if id(sub) not in skip and not _stack_enter(sub, ctx):
+      399 +        if id(sub) not in skip:                               
+      400              spec = match_resource(sub, ctx)
+      401              if spec is not None:
+      402                  temp = temp_handle(sub)
+     ...
+      423                          )
+      424                      )
+      425                  continue
+      399 -            name = target_name(inner)                         
+      426 +            name = ctx.canon(target_name(inner))              
+      427              if name and name in ctx.handles:
+      428                  kind = "container" if is_container_add else "c
+           all_arg:" + callee
+      429                  rest.append(Event("escape", name, sub_line, de
+           tail=kind))
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 1 line, removed 1 line
+      314      if inner is None:
+      315          return []
+      316      if isinstance(inner, (ast.Name, ast.Attribute)):
+      317 -        name = target_name(inner)                             
+      317 +        name = ctx.canon(target_name(inner))                  
+      318          return [name] if name and name in ctx.handles else []
+      319      if isinstance(inner, (ast.Tuple, ast.List, ast.Set)):
+      320          out: List[str] = []
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 5 lines
+      475          value = stmt.value
+      476          targets = list(stmt.targets) if isinstance(stmt, ast.A
+           ssign) else [stmt.target]
+      477          names = [n for n in (target_name(t) for t in targets) 
+           if n]
+      478 +        if not names:                                         
+      479 +            # `reader, writer = await asyncio.open_connection(
+          +...)`: one                                                    
+      480 +            # acquisition, several names. The first becomes ca
+          +nonical and the                                               
+      481 +            # rest alias to it, so closing any member closes t
+          +he site.                                                      
+      482 +            names = [n for n in _tuple_names(targets) if n][:1
+          +]                                                             
+      483          openings = _open_binding(value, ctx) if value is not N
+           one else []
+      484  
+      485          if value is not None:
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 13 lines
+      299  # ------------------------------------------------------------
+           --------------- #
+      300  
+      301  
+      302 +def _tuple_names(targets: Sequence[ast.AST]) -> List[str]:    
+      303 +    """Flatten `a, (b, c) = ...` into [a, b, c]."""           
+      304 +    out: List[str] = []                                       
+      305 +    for target in targets:                                    
+      306 +        if isinstance(target, (ast.Tuple, ast.List)):         
+      307 +            out.extend(_tuple_names(target.elts))             
+      308 +        else:                                                 
+      309 +            name = target_name(target)                        
+      310 +            if name:                                          
+      311 +                out.append(name)                              
+      312 +    return out                                                
+      313 +                                                              
+      314 +                                                              
+      315  def temp_handle(call: ast.Call) -> str:
+      316      """Synthetic handle for an open-site that is never bound t
+           o a name."""
+      317      return "<temp@%d:%d>" % (getattr(call, "lineno", 0), getat
+           tr(call, "col_offset", 0))
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 2 lines
+      575          events.extend(expression_events(stmt.value, ctx, line)
+           )
+      576          for sub in ast.walk(stmt.value):
+      577              if isinstance(sub, (ast.Yield, ast.YieldFrom)) and
+            sub.value is not None:
+      578 +                if ctx.suppress_abandon:                      
+      579 +                    continue  # @contextmanager / fixture: the
+          + handle comes back                                            
+      580                  for name in escaping_names(sub.value, ctx):
+      581                      events.append(Event("escape", name, line, 
+           detail="yield"))
+      582          if _process_exit(stmt.value, ctx):
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 18 lines, removed 1 line
+      829      escape event for every identifier in the function.
+      830      """
+      831      for sub in ast.walk(node):
+      832 +        if isinstance(sub, ast.Call):                         
+      833 +            acquired = match_acquire(sub, ctx)                
+      834 +            if acquired:                                      
+      835 +                ctx.handles.add(acquired[0])                  
+      836 +                ctx.specs.setdefault(acquired[0], acquired[1])
+      837          if isinstance(sub, (ast.Assign, ast.AnnAssign)):
+      838              targets = list(sub.targets) if isinstance(sub, ast
+           .Assign) else [sub.target]
+      839              if sub.value is None:
+     ...
+      844                  if resolve_call_name(value, ctx.resolver) in E
+           XIT_STACK_FACTORIES:
+      845                      ctx.stack_vars.update(names)
+      846                      continue
+      847 +                spec = ctx.registry.lookup(resolve_call_name(v
+          +alue, ctx.resolver) or "")                                    
+      848 +                if spec is not None and spec.acquired_by:     
+      849 +                    ctx.lock_objects.update(names or _tuple_na
+          +mes(targets))                                                 
+      850 +                    continue                                  
+      851              if _open_binding(sub.value, ctx):
+      843 -                ctx.handles.update(names)                     
+      852 +                if names:                                     
+      853 +                    ctx.handles.update(names)                 
+      854 +                else:                                         
+      855 +                    members = _tuple_names(targets)           
+      856 +                    if members:                               
+      857 +                        canonical = members[0]                
+      858 +                        ctx.handles.add(canonical)            
+      859 +                        for member in members[1:]:            
+      860 +                            ctx.aliases[member] = canonical   
+      861          elif isinstance(sub, (ast.With, ast.AsyncWith)):
+      862              for item in sub.items:
+      863                  var = target_name(item.optional_vars) if item.
+           optional_vars else None
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 24 lines, removed 1 line
+      885      node: ast.AST,
+      886      resolver: ImportResolver,
+      887      registry: Registry = DEFAULT_REGISTRY,
+      888 +    lock_objects: Optional[Set[str]] = None,                  
+      889  ) -> ScopeContext:
+      890      ctx = ScopeContext(registry=registry, resolver=resolver)
+      891      ctx.suppress_abandon = guaranteed_resume(node)
+      892 +    # Lock objects are discovered module-wide: `self._lock = t
+          +hreading.Lock()`                                              
+      893 +    # lives in __init__ while `self._lock.acquire()` lives in 
+          +another method.                                               
+      894 +    ctx.lock_objects.update(lock_objects or ())               
+      895      # Two passes: the first discovers ExitStack variables that
+            the second needs
+      896      # in order to recognise `stack.enter_context(open(p))` as 
+           an open-site.
+      897      collect_handle_names(node, ctx)
+     ...
+      899      return ctx
+      900  
+      901  
+      902 +def collect_lock_objects(tree: ast.AST, resolver: ImportResolv
+          +er,                                                           
+      903 +                         registry: Registry = DEFAULT_REGISTRY
+          +) -> Set[str]:                                                
+      904 +    """Module-wide set of names bound to a release-style resou
+          +rce."""                                                       
+      905 +    found: Set[str] = set()                                   
+      906 +    for sub in ast.walk(tree):                                
+      907 +        if not isinstance(sub, (ast.Assign, ast.AnnAssign)):  
+      908 +            continue                                          
+      909 +        value = unwrap(sub.value) if sub.value is not None els
+          +e None                                                        
+      910 +        if not isinstance(value, ast.Call):                   
+      911 +            continue                                          
+      912 +        raw = dotted_name(value.func)                         
+      913 +        spec = registry.lookup(resolver.resolve(raw)) if raw e
+          +lse None                                                      
+      914 +        if spec is not None and spec.acquired_by:             
+      915 +            targets = list(sub.targets) if isinstance(sub, ast
+          +.Assign) else [sub.target]                                    
+      916 +            found.update(_tuple_names(targets))               
+      917 +    return found                                              
+      918 +                                                              
+      919 +                                                              
+      920  def enumerate_scope_paths(
+      921      node: ast.AST,
+      922      resolver: ImportResolver,
+      923      registry: Registry = DEFAULT_REGISTRY,
+      924 +    lock_objects: Optional[Set[str]] = None,                  
+      925  ) -> Tuple[List[Path], ScopeContext]:
+      926      """Enumerate every exit path of a function / module body."
+           ""
+      904 -    ctx = build_scope_context(node, resolver, registry)       
+      927 +    ctx = build_scope_context(node, resolver, registry, lock_o
+          +bjects)                                                       
+      928      return compose(getattr(node, "body", []), ctx), ctx
+      929  
+      930  
+
+● Now wiring that into the detector plus the verdict-ordering fix.
+
+● Update(leakguard\detector.py)
+  ⎿  Added 5 lines
+      276          """Rules-only verdict. UNKNOWN is a first-class answer
+           , never promoted."""
+      277          if self.class_closes_attr or self.callee_closes_param:
+      278              return VERDICT_SAFE
+      279 +        # Proven released on every enumerated path. This has t
+          +o outrank the                                                 
+      280 +        # escape check: passing a handle to `json.load(fh)` in
+          +side a                                                        
+      281 +        # try/finally is an escape *and* a guaranteed close.  
+      282 +        if self.outcome.total and self.outcome.closed == self.
+          +outcome.total:                                                
+      283 +            return VERDICT_SAFE                               
+      284          # Intra-class ownership (spec 5b): an attribute nothin
+           g in the class
+      285          # ever releases is the high-value leak pylint and leak
+           audit both miss.
+      286          if self.is_owned_attribute:
+
+● Update(leakguard\detector.py)
+  ⎿  Added 7 lines, removed 1 line
+      17  from dataclasses import dataclass, field
+      18  from typing import Dict, List, Optional, Sequence, Set, Tuple
+      19  
+      20 -from .pathmodel import HandleOutcome, Path, analyse_handle, enu
+         -merate_scope_paths                                             
+      20 +from .pathmodel import (                                       
+      21 +    HandleOutcome,                                             
+      22 +    Path,                                                      
+      23 +    analyse_handle,                                            
+      24 +    collect_lock_objects,                                      
+      25 +    enumerate_scope_paths,                                     
+      26 +)                                                              
+      27  from .registry import (
+      28      DEFAULT_REGISTRY,
+      29      GENERIC_CLOSERS,
+● Update(leakguard\detector.py)
+  ⎿  Added 3 lines, removed 1 line
+      376      sites: List[OpenSite] = []
+      377      seen: Set[Tuple[str, int]] = set()
+      378  
+      379 +    lock_objects = collect_lock_objects(tree, resolver, regist
+          +ry)                                                           
+      380 +                                                              
+      381      for scope_node in _scope_nodes(tree):
+      380 -        paths, scope_ctx = enumerate_scope_paths(scope_node, r
+          -esolver, registry)                                            
+      382 +        paths, scope_ctx = enumerate_scope_paths(scope_node, r
+          +esolver, registry, lock_objects)                              
+      383          opens: Dict[Tuple[str, int], str] = {}
+      384          for path in paths:
+      385              for event in path.events:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+> great dont do the mutated code now wait for ast my teamate is doing that      
+
+● Understood — I'll stop before the mutation engine and leave
+  dataset/mutated_code/ to your teammate. Corpus validation now passes cleanly
+  (0 false positives, 0 unexpected UNKNOWNs across all 55 hand-written samples).
+
+  Expanding the negative class with a deterministic synthesizer, then the model/
+  folder.
+
+● Write(tools\synthesize.py)
+  ⎿  Error: [Fact-Forcing Gate]
+
+     Before creating C:\CodeGate\tools\synthesize.py, present these facts:
+
+     1. Name the file(s) and line(s) that will call this new file
+     2. Confirm no existing file serves the same purpose (use Glob)
+     3. If this file reads/writes data files, show field names, structure, and 
+     date format (use redacted or synthetic values, not raw production data)
+     4. Quote the user's current instruction verbatim
+
+     Present the facts, then retry the same operation.
+     … +2 lines (ctrl+o to expand)
+
+● Facts — C:\CodeGate\tools\synthesize.py
+
+  1. Callers: tools/build_dataset.py (pipeline step 2); runnable directly as
+     python tools/synthesize.py.
+  2. No duplicate: tools/ holds corpus_lib.py and seed_real_code.py only;
+     neither generates combinatorial samples.
+  3. Data written: .py files under dataset/real_code/synthesized/<shape>/ plus
+     dataset/real_code/synthesized/manifest.jsonl — same Sample schema as before
+     (sample_id, path, folder, origin, family, label, operator, derived_from, 
+     edge_cases, expected_leak_lines, expected_unknown_lines, resource_types, 
+     note, source_sha1). Synthetic row:
+     {"sample_id":"S-0001","path":"dataset/real_code/synthesized/with_statement/
+     with_statement__file_text__ingest.py","folder":"real_code","origin":"synthe
+     sized","family":"synth:with_statement","label":0,"operator":null,"derived_f
+     rom":null,"edge_cases":["EC-CTX-01"],"expected_leak_lines":[],"expected_unk
+     nown_lines":[],"resource_types":["FILE"],"note":"with_statement cleanup 
+     applied to open","source_sha1":"<40 hex>"}. Reads leakguard/resources.yaml
+     via the registry. No date fields.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python" + "make model folder for model training" + "great dont do the
+     mutated code now wait for ast my teamate is doing that"
+
+● Write(tools\synthesize.py)
+  ⎿  Wrote 494 lines to tools\synthesize.py
+       1 """Synthesize `dataset/real_code/synthesized/` — correct handlin
+       2 
+       3 The hand-written corpus covers the *interesting* cases; this cov
+       4 ones, which is what a model actually needs to learn the base rat
+         e from. Every
+         ed with varied
+       6 identifiers so the model cannot key on a name.
+       8 Two properties are load-bearing:
+       9 
+         RNG, so a
+     … +565 lines (ctrl+o to expand)
+
+> C:\Users\hp\Downloads\LeakGuard_Dataset_Test_Cases.pdf  check if any edge     
+  case is left or new edges we added compared to the pdf                        
+
+● The shelve warning is a false positive here — shelve.open appears only as a
+  registry name in a code-generation template string; nothing is deserialized.
+  Running the synthesizer and reading your PDF now.
+
+  Read 2 files, ran 3 shell commands (ctrl+o to expand)
+
+● Extracted. Now let me run every PDF case through the analyzer to find real
+  gaps.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The PDF benchmark exposed 9 genuine analyzer gaps — several are principled
+  disagreements worth fixing. Implementing.
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 9 lines
+       86  
+       87  PROCESS_EXITS = frozenset({"sys.exit", "os._exit", "os.abort",
+            "exit", "quit"})
+       88  
+       89 +#: Escape kinds that genuinely transfer *ownership*, making th
+          +e site                                                        
+       90 +#: unprovable. Passing a handle to an opaque call is deliberat
+          +ely NOT one of                                                
+       91 +#: them: `process(f)`, `json.load(f)` and `f.read()` overwhelm
+          +ingly consume a                                               
+       92 +#: handle without closing it, and treating every use as a tran
+          +sfer collapses                                                
+       93 +#: recall (it turns the PDF benchmark cases 3a/7b/8d/9 into UN
+          +KNOWN). Whether a                                             
+       94 +#: callee closes its parameter is answered by function summari
+          +es instead, and                                               
+       95 +#: `escapes_call_arg` still reaches the model as a feature.   
+       96 +OWNERSHIP_TRANSFER_ESCAPES = frozenset({"return", "yield", "se
+          +lf_attr", "container", "global"})                             
+       97 +                                                              
+       98  #: Decorators that guarantee the generator body is resumed to 
+           completion.
+       99  GUARANTEED_RESUME_DECORATORS = (
+      100      "contextmanager",
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 8 lines
+      948  
+      949      total: int = 0
+      950      leaking: int = 0
+      951 +    #: Leaks on paths that end normally (return / fall-through
+          + / handled                                                    
+      952 +    #: exception). These are build-breaking.                  
+      953 +    leaking_normal: int = 0                                   
+      954 +    #: Leaks that only happen when an exception propagates out
+          + of the function.                                             
+      955 +    #: Real, but reporting them as hard failures would flag `f
+          + = open(p);                                                   
+      956 +    #: data = f.read(); f.close()` — the most common correct-l
+          +ooking code there                                             
+      957 +    #: is. Reported as a warning tier instead.                
+      958 +    leaking_exception: int = 0                                
+      959      closed: int = 0
+      960      escaping: int = 0
+      961      escape_kinds: Set[str] = field(default_factory=set)
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 4 lines, removed 2 lines
+       996                  outcome.closed_anywhere = True
+       997                  outcome.close_lines.add(event.line)
+       998              elif event.kind == "escape" and event.handle == h
+            andle:
+       999 -                escaped = True                               
+      1000 -                outcome.escape_kinds.add(event.detail.split("
+           -:", 1)[0])                                                   
+       999 +                kind = event.detail.split(":", 1)[0]         
+      1000 +                outcome.escape_kinds.add(kind)               
+      1001 +                if kind in OWNERSHIP_TRANSFER_ESCAPES:       
+      1002 +                    escaped = True                           
+      1003              elif event.kind == "reassign" and event.handle ==
+             handle and not closed:
+      1004                  orphaned = True
+      1005              elif event.kind == "open" and event.handle == han
+            dle and event.line != open_line:
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 10 lines, removed 2 lines
+      1012              outcome.raising_call_between = True
+      1013          if orphaned and not escaped:
+      1014              outcome.orphaned_by_reassign += 1
+      1015 -            outcome.leaking += 1                             
+      1015 +            _count_leak(outcome, path)                       
+      1016          elif closed:
+      1017              outcome.closed += 1
+      1018          elif escaped:
+     ...
+      1020          elif path.term == TERM_EXIT:
+      1021              outcome.closed += 1     # the OS reclaims it; not
+             a reportable leak
+      1022          else:
+      1023 -            outcome.leaking += 1                             
+      1023 +            _count_leak(outcome, path)                       
+      1024      return outcome
+      1025 +                                                             
+      1026 +                                                             
+      1027 +def _count_leak(outcome: HandleOutcome, path: Path) -> None: 
+      1028 +    outcome.leaking += 1                                     
+      1029 +    if path.term == TERM_RAISE:                              
+      1030 +        outcome.leaking_exception += 1                       
+      1031 +    else:                                                    
+      1032 +        outcome.leaking_normal += 1                          
+
+● Now the seeded-handle support that path-based function summaries need.
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 4 lines
+      895      resolver: ImportResolver,
+      896      registry: Registry = DEFAULT_REGISTRY,
+      897      lock_objects: Optional[Set[str]] = None,
+      898 +    seed_handles: Optional[Set[str]] = None,                  
+      899  ) -> ScopeContext:
+      900      ctx = ScopeContext(registry=registry, resolver=resolver)
+      901      ctx.suppress_abandon = guaranteed_resume(node)
+      902 +    # Function summaries seed the parameter names so that `f.c
+          +lose()` inside the                                            
+      903 +    # callee registers as a close on a handle the callee never
+          + opened.                                                      
+      904 +    ctx.handles.update(seed_handles or ())                    
+      905      # Lock objects are discovered module-wide: `self._lock = t
+           hreading.Lock()`
+      906      # lives in __init__ while `self._lock.acquire()` lives in 
+           another method.
+      907      ctx.lock_objects.update(lock_objects or ())
+
+● Update(leakguard\pathmodel.py)
+  ⎿  Added 2 lines, removed 1 line
+      935      resolver: ImportResolver,
+      936      registry: Registry = DEFAULT_REGISTRY,
+      937      lock_objects: Optional[Set[str]] = None,
+      938 +    seed_handles: Optional[Set[str]] = None,                  
+      939  ) -> Tuple[List[Path], ScopeContext]:
+      940      """Enumerate every exit path of a function / module body."
+           ""
+      940 -    ctx = build_scope_context(node, resolver, registry, lock_o
+          -bjects)                                                       
+      941 +    ctx = build_scope_context(node, resolver, registry, lock_o
+          +bjects, seed_handles)                                         
+      942      return compose(getattr(node, "body", []), ctx), ctx
+      943  
+      944  
+
+● Now the path-based function summaries with all-paths vs some-paths resolution.
+
+● Update(leakguard\detector.py)
+  ⎿  Added 37 lines, removed 26 lines
+      199      return methods
+      200  
+      201  
+      202 -def collect_function_summaries(tree: ast.AST) -> Dict[str, Set
+          -[str]]:                                                       
+      203 -    """function name -> parameter names it closes.            
+      202 +def collect_function_summaries(                               
+      203 +    tree: ast.AST,                                            
+      204 +    resolver: ImportResolver,                                 
+      205 +    registry: Registry = DEFAULT_REGISTRY,                    
+      206 +) -> Dict[str, Dict[str, str]]:                               
+      207 +    """function name -> {parameter: "all" | "some"}.          
+      208  
+      205 -    A deliberately shallow single-module approximation of the 
+          -P2 interprocedural                                            
+      206 -    fixpoint. It exists so that helper-closes-the-handle code 
+          -(adversarial case                                             
+      207 -    A7) does not read as a leak.                              
+      209 +    "all" means the callee releases that parameter on *every* 
+          +one of its exit                                               
+      210 +    paths, so the caller's site is provably safe. "some" means
+          + it releases it on                                            
+      211 +    at least one path — the PDF benchmark case `cleanup(f, con
+          +dition)` — which                                              
+      212 +    is precisely an UNKNOWN, never a SAFE.                    
+      213 +                                                              
+      214 +    A deliberately shallow, single-module approximation of the
+          + P2                                                           
+      215 +    interprocedural fixpoint: it reuses the same path enumerat
+          +or rather than                                                
+      216 +    pattern-matching the body, so `if condition: f.close()` is
+          + distinguished                                                
+      217 +    from `f.close()` for free.                                
+      218      """
+      209 -    summaries: Dict[str, Set[str]] = {}                       
+      219 +    summaries: Dict[str, Dict[str, str]] = {}                 
+      220      for node in ast.walk(tree):
+      221          if not isinstance(node, (ast.FunctionDef, ast.AsyncFun
+           ctionDef)):
+      222              continue
+      223          params = {a.arg for a in node.args.args} | {a.arg for 
+           a in node.args.kwonlyargs}
+      214 -        if node.args.vararg:                                  
+      215 -            params.add(node.args.vararg.arg)                  
+      216 -        closed: Set[str] = set()                              
+      217 -        for sub in ast.walk(node):                            
+      218 -            if isinstance(sub, ast.Call) and isinstance(sub.fu
+          -nc, ast.Attribute):                                           
+      219 -                if sub.func.attr in GENERIC_CLOSERS or sub.fun
+          -c.attr in ("wait", "communicate"):                            
+      220 -                    target = dotted_name(sub.func.value)      
+      221 -                    if target in params:                      
+      222 -                        closed.add(target)                    
+      223 -            if isinstance(sub, ast.withitem):                 
+      224 -                target = dotted_name(sub.context_expr)        
+      225 -                if target in params:                          
+      226 -                    closed.add(target)                        
+      227 -                if isinstance(sub.context_expr, ast.Call):    
+      228 -                    for arg in sub.context_expr.args:         
+      229 -                        name = dotted_name(arg)               
+      230 -                        if name in params:                    
+      231 -                            closed.add(name)                  
+      232 -        if closed:                                            
+      233 -            summaries[node.name] = closed                     
+      224 +        params |= {a.arg for a in getattr(node.args, "posonlya
+          +rgs", [])}                                                    
+      225 +        params.discard("self")                                
+      226 +        params.discard("cls")                                 
+      227 +        if not params:                                        
+      228 +            continue                                          
+      229 +        paths, _ctx = enumerate_scope_paths(node, resolver, re
+          +gistry, seed_handles=params)                                  
+      230 +        if not paths:                                         
+      231 +            continue                                          
+      232 +        verdicts: Dict[str, str] = {}                         
+      233 +        for param in sorted(params):                          
+      234 +            closing = sum(                                    
+      235 +                1                                             
+      236 +                for path in paths                             
+      237 +                if any(e.kind == "close" and e.handle == param
+          + for e in path.events)                                        
+      238 +            )                                                 
+      239 +            if closing == len(paths):                         
+      240 +                verdicts[param] = "all"                       
+      241 +            elif closing:                                     
+      242 +                verdicts[param] = "some"                      
+      243 +        if verdicts:                                          
+      244 +            summaries[node.name] = verdicts                   
+      245      return summaries
+      246  
+      247  
+
+● Update(leakguard\detector.py)
+  ⎿  Added 8 lines
+      54  
+      55  VERDICT_SAFE = "SAFE"
+      56  VERDICT_LEAK = "DEFINITE_LEAK"
+      57 +#: Provable, but only when an exception propagates out of the f
+         +unction. Real                                                  
+      58 +#: (CPython raises ResourceWarning for it) yet reporting it as 
+         +a build failure                                                
+      59 +#: would flag the single most common shape of correct-looking P
+         +ython, so it                                                   
+      60 +#: gets its own warning tier and does not fail CI by default.  
+      61 +VERDICT_EXCEPTION_LEAK = "EXCEPTION_PATH_LEAK"                 
+      62  VERDICT_UNKNOWN = "UNKNOWN"
+      63  
+      64 +#: Verdicts that block a build (spec section 10).              
+      65 +BLOCKING_VERDICTS = frozenset({VERDICT_LEAK})                  
+      66  
+      67 +                                                               
+      68  # -------------------------------------------------------------
+          -------------- #
+      69  # Static context collected in one AST walk
+      70  # -------------------------------------------------------------
+          -------------- #
+
+● Update(leakguard\detector.py)
+  ⎿  Added 8 lines, removed 2 lines
+      310          # ever releases is the high-value leak pylint and leak
+           audit both miss.
+      311          if self.is_owned_attribute:
+      312              return VERDICT_LEAK
+      313 -        if self.outcome.escape_kinds:                         
+      313 +        # A callee that closes the handle on *some* of its pat
+          +hs is exactly the                                             
+      314 +        # case we must not resolve either way.                
+      315 +        if self.callee_may_close_param:                       
+      316              return VERDICT_UNKNOWN
+      315 -        if self.outcome.leaking > 0:                          
+      317 +        if self.outcome.escape_kinds & OWNERSHIP_TRANSFER_ESCA
+          +PES:                                                          
+      318 +            return VERDICT_UNKNOWN                            
+      319 +        if self.outcome.leaking_normal > 0:                   
+      320              return VERDICT_LEAK
+      321 +        if self.outcome.leaking_exception > 0:                
+      322 +            return VERDICT_EXCEPTION_LEAK                     
+      323          if self.path_truncated:
+      324              return VERDICT_UNKNOWN
+      325          return VERDICT_SAFE
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 9 → 4. The 4 remaining are all one deliberate divergence I'll document.
+  Checking the corpus didn't regress:
+
+  Read 1 file, ran 4 shell commands (ctrl+o to expand)
+
+● Zero false positives now across all 695 real-code samples. Fixing a docstring
+  that bash mangled via backtick substitution:
+● Update(leakguard\registry.py)
+  ⎿  Added 2 lines, removed 2 lines
+      204          """Every release verb any registered resource uses.
+      205  
+      206          Used as the fallback when the handle has no known spec
+            -- a function
+      207 -        parameter, for instance -- so that  inside a helper   
+      208 -        still registers as releasing a subprocess.            
+      207 +        parameter, for instance -- so that a helper calling pr
+          +ocess.wait() on                                               
+      208 +        its argument still registers as releasing a subprocess
+          +.                                                             
+      209          """
+      210          verbs = set(GENERIC_CLOSERS)
+      211          for spec in self.specs:
+
+● Now the dataset verifier, feature extractor, and build orchestrator.
+
+● Write(tools\verify_dataset.py)
+  ⎿  Error: [Fact-Forcing Gate]
+
+     Before creating C:\CodeGate\tools\verify_dataset.py, present these facts:
+
+     1. Name the file(s) and line(s) that will call this new file
+     2. Confirm no existing file serves the same purpose (use Glob)
+     3. If this file reads/writes data files, show field names, structure, and 
+     date format (use redacted or synthetic values, not raw production data)
+     4. Quote the user's current instruction verbatim
+
+     Present the facts, then retry the same operation.
+     … +2 lines (ctrl+o to expand)
+
+● Facts — C:\CodeGate\tools\verify_dataset.py
+
+  1. Callers: tools/build_dataset.py (final pipeline gate); run directly as
+     python tools/verify_dataset.py; intended for CI.
+  2. No duplicate: tools/ holds corpus_lib.py, seed_real_code.py, synthesize.py.
+     No verifier exists.
+  3. Data read: the four dataset/**/manifest.jsonl files (Sample schema:
+     sample_id, path, folder, origin, family, label, operator, derived_from, 
+     edge_cases, expected_leak_lines, expected_unknown_lines, resource_types, 
+     note, source_sha1) and every .py they reference. Writes nothing unless
+     --json is piped. Synthetic input row: {"sample_id":"R-001","path":"dataset/
+     real_code/handwritten/files/with_basic.py","label":0,"expected_leak_lines":
+     [],"expected_unknown_lines":[],"source_sha1":"09e20e0f…"}. No date fields.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python" + "make model folder for model training" + "great dont do the
+     mutated code now wait for ast my teamate is doing that" +
+     "C:\Users\hp\Downloads\LeakGuard_Dataset_Test_Cases.pdf check if any edge
+     case is left or new edges we added compared to the pdf"
+
+● Write(tools\verify_dataset.py)
+  ⎿  Wrote 175 lines to tools\verify_dataset.py
+       1 """Verify the corpus against its own labels — run this before ev
+       2 
+       3 Three classes of problem it catches:
+       5 1. **Broken samples.** A file that no longer parses, or a manife
+         st row pointing
+       7 2. **False positives.** Any `DEFINITE_LEAK` on a label-0 sample.
+          This number is
+         hether a team
+       9    keeps the tool switched on.
+         the analyser
+     … +194 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Write(tools\extract_features.py)
+  ⎿  Error: [Fact-Forcing Gate]
+
+     Before creating C:\CodeGate\tools\extract_features.py, present these facts:
+
+     1. Name the file(s) and line(s) that will call this new file
+     2. Confirm no existing file serves the same purpose (use Glob)
+     3. If this file reads/writes data files, show field names, structure, and 
+     date format (use redacted or synthetic values, not raw production data)
+     4. Quote the user's current instruction verbatim
+
+     Present the facts, then retry the same operation.
+     … +2 lines (ctrl+o to expand)
+
+● Facts — C:\CodeGate\tools\extract_features.py
+
+  1. Callers: tools/build_dataset.py (pipeline step 4); model/train.py consumes
+     its output; run directly as python tools/extract_features.py.
+  2. No duplicate: tools/ holds corpus_lib.py, seed_real_code.py, synthesize.py,
+     verify_dataset.py. No feature-extraction script exists.
+  3. Data written:
+     - dataset/features/features.jsonl + features.csv — one row per open-site.
+       Columns: metadata row_id, sample_id, path, folder, origin, family, split,
+       sample_label, label, operator, edge_cases, line, handle, resource_call, 
+       resource_type, scope, class_name, verdict, exposure plus the 14
+       FEATURE_NAMES floats. Synthetic row:
+       {"row_id":"R-001#5:handle","sample_id":"R-001","path":"dataset/real_code/
+       handwritten/files/with_basic.py","family":"real:files:with_basic","split"
+       :"train","sample_label":0,"label":0,"operator":"","line":5,"handle":"hand
+       le","resource_call":"open","resource_type":"FILE","verdict":"SAFE","expos
+       ure":1.0,"leaking_path_fraction":0.0,"resource_type_weight":1.0}
+     - dataset/features/feature_spec.json — {feature_names, metadata_columns, 
+       label, split_rule, site_label_rule}
+     - dataset/splits/{train,val,test}.jsonl — same row schema, subset by split
+     - dataset/reports/dataset_stats.json — {rows, positives, negatives, 
+       positive_rate, rows_by_split, rows_by_split_label, families_by_split, 
+       rules_verdicts, resource_types, mutation_operators, feature_names}
+       No date fields anywhere — deliberately timestamp-free so rebuilds are
+       byte-identical.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python" + "make model folder for model training" + "great dont do the
+     mutated code now wait for ast my teamate is doing that" +
+     "C:\Users\hp\Downloads\LeakGuard_Dataset_Test_Cases.pdf check if any edge
+     case is left or new edges we added compared to the pdf"
+
+● Write(tools\extract_features.py)
+  ⎿  Wrote 199 lines to tools\extract_features.py
+       1 """Turn the corpus into model-ready feature rows.
+       2 
+         sitions where a
+       4 mutation broke one of them contributes one positive and two nega
+         tives, and that
+       6 
+       7 Site-level labelling rule
+       8 -------------------------
+      10 * label-1 sample  -> a site is 1 iff its acquisition line is lis
+         ted in the
+     … +214 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Now the centerpiece: the edge-case research document.
+
+● Write(dataset\mutated_code\edge_cases.md)
+  ⎿  Error: [Fact-Forcing Gate]
+
+     Before creating C:\CodeGate\dataset\mutated_code\edge_cases.md, present 
+     these facts:
+
+     1. Name the file(s) and line(s) that will call this new file
+     2. Confirm no existing file serves the same purpose (use Glob)
+     3. If this file reads/writes data files, show field names, structure, and 
+     date format (use redacted or synthetic values, not raw production data)
+     4. Quote the user's current instruction verbatim
+
+     Present the facts, then retry the same operation.
+     … +2 lines (ctrl+o to expand)
+
+> i have got the ast code once u finish let me know i will provide you the code 
+
+● Facts — C:\CodeGate\dataset\mutated_code\edge_cases.md
+
+  1. Consumers: read by humans (the mutation-pass author and the write-up);
+     tools/build_dataset.py rewrites the block between the <!-- BEGIN GENERATED 
+     COVERAGE --> / <!-- END GENERATED COVERAGE --> markers with live counts.
+     Its EC-* ids are referenced by the edge_cases field in every manifest and
+     feature row.
+  2. No duplicate: dataset/mutated_code/ is empty; Glob **/*.md would return
+     only LEAKGUARD_SPEC.md. No edge-case catalogue exists.
+  3. Data: a Markdown document — it reads and writes no data files itself. It
+     documents the manifest contract for generated mutants: sample_id, path, 
+     folder, origin, family, label, operator, derived_from, edge_cases, 
+     expected_leak_lines, expected_unknown_lines, resource_types, note, 
+     source_sha1, with the synthetic example row shown inline in §12. No date
+     fields.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python" + "make model folder for model training" + "great dont do the
+     mutated code now wait for ast my teamate is doing that" + "check if any
+     edge case is left or new edges we added compared to the pdf" + "i have got
+     the ast code once u finish let me know i will provide you the code"
+
+● Write(dataset\mutated_code\edge_cases.md)
+  ⎿  Wrote 460 lines to dataset\mutated_code\edge_cases.md
+       1 # Resource-Leak Edge Cases — Research Catalogue and Mutation Cov
+       2 
+       3 This is the reference document for `dataset/mutated_code/`. It a
+       4 questions:
+       6 1. **What can possibly go wrong** when deciding whether a Python
+          resource is
+          handle.
+       8 2. **Which of those we mutate**, with which operator, at what ca
+       9 3. **Where we knowingly stop**, and why an honest `UNKNOWN` is t
+      10    answer there.
+     … +691 lines (ctrl+o to expand)
+
+● Now the model/ folder — a stdlib-only training pipeline that reads the
+  dataset.
+
+● Write(model\pipeline.py)
+  ⎿  Error: [Fact-Forcing Gate]
+
+     Before creating C:\CodeGate\model\pipeline.py, present these facts:
+
+     1. Name the file(s) and line(s) that will call this new file
+     2. Confirm no existing file serves the same purpose (use Glob)
+     3. If this file reads/writes data files, show field names, structure, and 
+     date format (use redacted or synthetic values, not raw production data)
+     4. Quote the user's current instruction verbatim
+
+     Present the facts, then retry the same operation.
+     … +2 lines (ctrl+o to expand)
+
+● Facts — C:\CodeGate\model\pipeline.py
+
+  1. Callers: model/train.py (imports load_all, fit_logistic, fit_platt,
+     conformal_threshold, confusion, prf, brier, reliability,
+     rules_only_baseline, breakdown); later leakguard/model.py will load only
+     the emitted model.json, not this module.
+  2. No duplicate: model/ does not exist yet — this creates it. Glob **/*.py
+     returns only leakguard/*.py and tools/*.py; no training code anywhere.
+  3. Data read: dataset/splits/{train,val,test}.jsonl, the row schema emitted by
+     tools/extract_features.py — metadata row_id, sample_id, path, folder, 
+     origin, family, split, sample_label, label, operator, edge_cases, line, 
+     handle, resource_call, resource_type, scope, class_name, verdict, exposure
+     plus the 14 FEATURE_NAMES floats. Synthetic row:
+     {"row_id":"S-0001#5:handle","label":0,"verdict":"SAFE","operator":"","edge_
+     cases":"EC-CTX-01","leaking_path_fraction":0.0,"resource_type_weight":1.0}.
+     Writes nothing itself (model/train.py writes the artifacts). No date
+     fields — artifacts are deliberately timestamp-free so a rebuild is
+     byte-identical and the same commit SHA yields the same verdict.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python" + "make model folder for model training" + "great dont do the
+     mutated code now wait for ast my teamate is doing that" + "check if any
+     edge case is left or new edges we added compared to the pdf" + "i have got
+     the ast code once u finish let me know i will provide you the code"
+
+● Write(model\pipeline.py)
+  ⎿  Wrote 409 lines to model\pipeline.py
+       1 """Training pipeline internals: data loading, logistic regressio
+       2 
+       3 Pure standard library on purpose. The model is ~15 numbers; pull
+       4 scikit-learn to fit it would put a dependency wall between the a
+       5 for no benefit, and would make the "same commit SHA, same verdic
+         t" guarantee
+       7 
+       8 Nothing here runs at scan time. Scanning loads `model/artifacts/
+       9 evaluates one dot product. Recalibration is an explicit offline 
+      10 emits a reviewable diff.
+     … +451 lines (ctrl+o to expand)
+
+> first should we see the ast?                                                  
+
+● Yes — best to see it now, before I write the orchestrator that calls it. Let
+  me finish model/ so the pipeline is runnable, then take your code.
+
+● Write(model\train.py)
+  ⎿  Error: [Fact-Forcing Gate]
+
+     Before creating C:\CodeGate\model\train.py, present these facts:
+
+     1. Name the file(s) and line(s) that will call this new file
+     2. Confirm no existing file serves the same purpose (use Glob)
+     3. If this file reads/writes data files, show field names, structure, and 
+     date format (use redacted or synthetic values, not raw production data)
+     4. Quote the user's current instruction verbatim
+
+     Present the facts, then retry the same operation.
+     … +2 lines (ctrl+o to expand)
+
+● Facts — C:\CodeGate\model\train.py
+
+  1. Callers: run directly (python model/train.py); tools/build_dataset.py will
+     invoke it as the final pipeline step. It imports model/pipeline.py.
+  2. No duplicate: model/ contains only pipeline.py (just created). No trainer
+     exists.
+  3. Data read: dataset/splits/{train,val,test}.jsonl (row schema from
+     tools/extract_features.py: row_id, sample_id, path, folder, origin, family,
+     split, sample_label, label, operator, edge_cases, line, handle, 
+     resource_call, resource_type, scope, class_name, verdict, exposure + 14
+     feature floats).
+     Data written under model/artifacts/:
+     - model.json — {version, feature_names, weights{name→float}, bias, 
+       platt{a,b}, threshold{value,derivation,max_false_alarm_rate}, 
+       training{l2,train_rows,train_positives,val_rows,val_positives,class_weigh
+       ting,optimizer}}. Synthetic: {"version":1,"bias":-2.31,"weights":{"leakin
+       g_path_fraction":3.42,"escapes_return":-1.87},"platt":{"a":1.04,"b":-0.12
+       },"threshold":{"value":0.83,"max_false_alarm_rate":0.05}}
+     - metrics.json — {threshold, max_false_alarm_rate, calibration_split, 
+       train/val/test each {rows, positives, counts{tp,fp,tn,fn}, precision, 
+       recall, f1, false_alarm_rate, brier, expected_calibration_error, 
+       rules_only_baseline, recall_by_operator, recall_by_edge_case}}
+     - reliability.csv — header
+       bin_lower,bin_upper,count,mean_predicted,observed_rate
+       No date/timestamp fields in any artifact — deliberate, so a rerun is
+       byte-identical and recalibration shows up as a reviewable diff.
+  4. User instruction verbatim: "@LEAKGUARD_SPEC.md start with dataset creation
+     containg Real code folder and Mutable code folder for model training
+     containing all the data necessary for model training and make edge_cases.md
+     in multable that tells which on which edge cases have we mutated and
+     reseach on all possible edge cases for leak detection.everything should be
+     in python" + "make model folder for model training" + "great dont do the
+     mutated code now wait for ast my teamate is doing that" + "check if any
+     edge case is left or new edges we added compared to the pdf" + "i have got
+     the ast code once u finish let me know i will provide you the code" +
+     "first should we see the ast?"
+
+● Write(model\train.py)
+  ⎿  Wrote 206 lines to model\train.py
+       1 """Fit the confidence model and emit reviewable artifacts.
+       2 
+       3     python model/train.py
+       5 Reads `dataset/splits/*.jsonl`, fits on train, calibrates on val
+         , derives the
+       6 gate threshold from a stated false-alarm tolerance, and evaluate
+         s on test.
+       8 Three properties that are not negotiable:
+       9 
+      10 * **Offline only.** This never runs at scan time. Scanning reads
+     … +235 lines (ctrl+o to expand)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Yes — send it now. I've hit the natural handoff point, and the orchestrator
+  (tools/build_dataset.py) is the one thing I deliberately haven't written,
+  because it's the integration seam with your teammate's mutator. Better to
+  shape it around their actual code than to write it twice.
+
+  What's done
+
+  leakguard/     registry.py · pathmodel.py · detector.py · features.py ·
+  resources.yaml
+  tools/         corpus_lib.py · seed_real_code.py · synthesize.py
+                 extract_features.py · verify_dataset.py
+  model/         pipeline.py · train.py
+  dataset/
+    real_code/handwritten/    55 files   (10 categories, incl. all 15 A-series
+  decoys)
+    real_code/synthesized/   640 files   (17 cleanup shapes × 26 resource types)
+    mutated_code/            edge_cases.md — waiting on the AST pass
+    features/                features.jsonl + .csv + feature_spec.json  (700
+  rows)
+    splits/                  train 502 / val 96 / test 102, grouped by family
+
+  python tools/verify_dataset.py → 0 false positives, 0 unexpected UNKNOWNs
+  across all 695 samples. The trainer is verified working on a synthetic
+  positive class (Brier 0.0011, false-alarm rate lands exactly on the configured
+  5%); against the real corpus it correctly refuses to train and tells you the
+  positives are missing.
+
+  On your PDF — nothing is left uncovered
+
+  All 28 benchmark cases run through the analyzer. 24 match exactly. The other 4
+  (1a, 3c, 5b, 8c) are one deliberate divergence, not a gap: f = open(p); data 
+  = f.read(); f.close(). Your PDF calls it SAFE; the spec's case B6 says flag
+  it; CPython raises ResourceWarning for it. Both are right, so it gets its own
+  verdict — EXCEPTION_PATH_LEAK, reported as a warning that doesn't fail the
+  build. DEFINITE_LEAK is reserved for leaks on paths that end normally.
+
+  Finding those 4 cost real bug fixes — the PDF caught 9 genuine analyzer
+  defects, including cleanup(f, condition) wrongly resolving to SAFE (now
+  UNKNOWN via all-paths-vs-some-paths function summaries).
+
+  14 edge-case families we add beyond the PDF, biggest first: with 
+  sqlite3.connect(...) does not close the connection (transaction manager,
+  silently mislabels real code); intra-class ownership incl. the no-closer leak;
+  locks acquire on .acquire(), not construction;
+  ExitStack/closing/AsyncExitStack; generator abandonment + pytest/FastAPI
+  fixtures; the whole async family; 8 false-positive decoys; unbound
+  acquisitions like a bare subprocess.Popen(cmd); non-close release verbs. Full
+  catalogue with IDs in dataset/mutated_code/edge_cases.md §13.
+
+  What I need from the AST code
+
+  §12 of edge_cases.md has the mutant contract. Four things I'll check first:
+
+  1. family inherited from the source sample, never regenerated — a mutant and
+     its original in different splits roughly doubles reported F1.
+  2. expected_leak_lines = the acquisition line the mutation broke, not the line
+     edited.
+  3. Mutants parse (verify_dataset.py gates this).
+  4. The mutation actually changed the verdict — an unchanged one is mislabelled
+     noise.
+
+  If the operator names differ from my M1–M14 table, that's fine — I'll
+  reconcile the table to their code rather than the other way round. Paste it
+  when ready.
+
+✻ Cogitated for 54m 2s · done 1:27 PM

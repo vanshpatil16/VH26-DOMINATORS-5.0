@@ -1,0 +1,15 @@
+"""An owner object that releases its handle in close()."""
+
+import zipfile
+
+
+class BillingFileZipClient:
+    def __init__(self, path=None, host=None, port=0, url=None, dsn=None, query=None, key=None, user=None, secret=None, sender=None, recipient=None, command=None, items=(), payload=None, worker=None):
+        self.archive = zipfile.ZipFile(path)
+
+    def run(self, path=None, host=None, port=0, url=None, dsn=None, query=None, key=None, user=None, secret=None, sender=None, recipient=None, command=None, items=(), payload=None, worker=None):
+        payload = self.archive.namelist()
+        return payload
+
+    def close(self):
+        self.archive.close()
