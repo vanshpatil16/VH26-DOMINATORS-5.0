@@ -36,62 +36,77 @@ python -m leakguard scan my_project/ --json
 
 ### 1. Online Scan Pipeline (Zero-Dependency Stdlib Engine)
 
-```mermaid
-flowchart TD
-    subgraph S1["1. Ingestion & Deterministic AST Analysis"]
-        SRC["Python Source Code (.py)"] --> AST["ast.parse (AST)"]
-        REG["Resource Registry (resources.yaml)"] --> DET["Resource Detector"]
-        AST --> DET
-        DET --> SYM["Symbol & Alias Tracker (SSA Rebinding)"]
-        AST --> OWN["Intra-Class Ownership & Function Summaries"]
-        SYM --> CFG["CFG Builder (Basic Blocks, Branches, Loops, Async, Exceptions)"]
-        OWN --> CFG
-    end
-
-    subgraph S2["2. Tier 1: Deterministic Path Verifier"]
-        CFG --> PV{"Path Verifier (Enumerate Reachable Exit Paths)"}
-        PV -->|"All paths closed"| V_SAFE["SAFE (Silent Exit 0)"]
-        PV -->|"Provable unclosed path, no escape"| V_LEAK["DEFINITE_LEAK (Block Build: Exit 1)"]
-        PV -->|"Escape / Callee unresolvable"| V_UNK["UNKNOWN"]
-        PV -->|"Closed on success, leaks on raise"| V_EXC["EXCEPTION_PATH_LEAK"]
-    end
-
-    subgraph S3["3. Tier 2: Explainable AI (XAI) & Confidence Scoring"]
-        V_UNK --> FE["14-D Feature Extraction (leaking_fraction, in_loop, escapes...)"]
-        V_EXC --> FE
-        FE --> LR["Logistic Regression Weights (L2 Regularized)"]
-        LR --> PLATT["Platt Scaling Sigmoid: P(leak)"]
-        PLATT --> RISK["Risk Score = P(leak) × Exposure Multiplier"]
-        RISK --> XAI["XAI Engine: Log-Odds Feature Attributions (w_i × x_i) & Counterfactual 'What-If'"]
-        
-        XAI --> THRESH{"Risk ≥ Threshold?"}
-        THRESH -->|"High Confidence & High Risk"| V_LIKELY["LIKELY_LEAK (Exit 1 / Warning)"]
-        THRESH -->|"Low Risk / Advisory"| V_POSSIBLE["POSSIBLE_LEAK (Warning / Triage)"]
-        THRESH -->|"Below Threshold"| V_SAFE2["SAFE"]
-    end
-
-    subgraph S4["4. Reporting, Auto-Remediation & CI Gate"]
-        V_LEAK --> REP["Reporting & Formatting Engine"]
-        V_LIKELY --> REP
-        V_POSSIBLE --> REP
-        
-        REP --> CLI["CLI Terminal Output (Color Badges, Snippets, XAI Evidence)"]
-        REP --> SARIF["SARIF v2.1.0 (GitHub Code Scanning / GitLab SAST)"]
-        REP --> FIX["Auto-Fix Engine (LibCST AST Rewriting -> Unified Diff / --fix)"]
-        
-        CLI --> CI_GATE{"CI Gate (Exit Code 0 vs 1)"}
-    end
-
-    %% Styles
-    classDef safe fill:#e6ffed,stroke:#28a745,stroke-width:2px;
-    classDef leak fill:#ffeef0,stroke:#d73a49,stroke-width:2px;
-    classDef warn fill:#fff8c5,stroke:#e36209,stroke-width:2px;
-    classDef core fill:#f1f8ff,stroke:#0366d6,stroke-width:1px;
-
-    class V_SAFE,V_SAFE2 safe;
-    class V_LEAK,V_LIKELY leak;
-    class V_POSSIBLE,V_EXC,V_UNK warn;
-    class DET,SYM,CFG,PV,FE,LR,PLATT,RISK,XAI,FIX,SARIF core;
+```text
+                      Python source (.py)
+                               |
+   resources.yaml              v
+   (resource registry) --> ast.parse --> Resource Detector
+                                 |              |
+                                 |              v
+                                 |     Symbol + alias tracker (SSA rebinding)
+                                 |              |
+                                 v              |
+                     Intra-class ownership      |
+                     + function summaries       |
+                                 |              |
+                                 +------+-------+
+                                        v
+                                   CFG Builder
+                      basic blocks | branches | loops
+                      async edges  | exception edges
+                                        |
+ =======================================+==============================
+  TIER 1 - deterministic path verifier   v
+  enumerate every reachable exit path
+                                        |
+        +---------------+---------------+----+--------------------+
+        v               v                    v                    v
+   all paths      provable unclosed     escape or          closed on success,
+     closed        path, no escape     opaque callee        leaks on raise
+        |               |                    |                    |
+        v               v                    v                    v
+      SAFE        DEFINITE_LEAK           UNKNOWN         EXCEPTION_PATH_LEAK
+    (exit 0)         (exit 1)                |                    |
+                        |                    +---------+----------+
+                        |                              v
+ =======================+==============================+==============
+  TIER 2 - explainable  |              14-D feature extraction
+  confidence scoring    |              leaking_path_fraction, in_loop,
+                        |              escapes_*, raising_call_between
+                        |                              |
+                        |                              v
+                        |              Logistic regression (L2 regularised)
+                        |                              |
+                        |                              v
+                        |              Platt scaling  -->  P(leak)
+                        |                              |
+                        |                              v
+                        |              Risk = P(leak) x exposure
+                        |                              |
+                        |                              v
+                        |              XAI log-odds attributions
+                        |              w_i * x_i + counterfactual
+                        |                              |
+                        |            +-----------------+----------------+
+                        |            v                 v                v
+                        |     risk >= threshold    advisory     below threshold
+                        |            |                 |                |
+                        |            v                 v                v
+                        |      LIKELY_LEAK      POSSIBLE_LEAK          SAFE
+                        |            |                 |
+ =======================+============+=================+==============
+  Reporting + CI gate   +------------+--------+--------+
+                                              v
+                             Reporting and formatting engine
+                                              |
+              +-------------------------------+--------------------------+
+              v                               v                          v
+      CLI terminal output               SARIF v2.1.0              Auto-fix engine
+   colour badges, code snippets     GitHub code scanning       LibCST AST rewrite
+        XAI evidence lines               GitLab SAST            diff  or  --fix
+              |
+              v
+     CI gate - exit 0 or exit 1
 ```
 
 ---
@@ -100,14 +115,29 @@ flowchart TD
 
 Scanning uses **zero online learning** and evaluates one frozen dot product from `model.json` so that the same Git commit SHA always yields the exact same verdict across all environments:
 
-```mermaid
-flowchart LR
-    MUT["Mutation Engine (tools/mutate.py: M1–M14 Operators)"] --> DS[("Corpus: 939 Files (Real + Mutated)")]
-    DS --> SPLITS["Grouped Splits by Family (Train / Val / Test)"]
-    SPLITS --> TRAIN["model/train.py (IRLS Logistic Fit)"]
-    TRAIN --> CALIB["Platt Calibration on Validation Negatives (FAR ≤ 5%)"]
-    CALIB --> ARTIFACT["model/artifacts/model.json (Frozen Weights & Biases)"]
-    ARTIFACT -.->|"Zero-dependency dot product loaded at scan time"| LR
+```text
+   tools/mutate.py                          dataset/
+   M1-M14 mutation operators    -->    real_code/      695 safe samples
+   capped per operator                 mutated_code/   244 labelled leaks
+                                               |
+                                               v
+                            grouped splits by family (SHA-1 bucketed)
+                                train    |    val    |    test
+                                               |
+                                               v
+                           model/train.py - IRLS logistic fit
+                                               |
+                                               v
+                      Platt calibration on validation negatives
+                        threshold tau derived from FAR <= 5%
+                                               |
+                                               v
+                      model/artifacts/model.json - frozen weights
+                                               :
+                                               :  loaded at scan time as one
+                                               :  dot product, never updated
+                                               v
+                                Tier 2 scorer (online pipeline)
 ```
 
 ---
