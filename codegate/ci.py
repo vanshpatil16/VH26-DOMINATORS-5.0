@@ -59,10 +59,46 @@ def collect_targets(targets: list[str]) -> list[Path]:
     return _collect_py_files(targets)
 
 
+import json
+import urllib.request
+import urllib.error
+import os
+
+def verify_license(license_key: str | None, repo_name: str | None = None) -> dict:
+    """Validate LeakGuard License Key against backend API endpoint."""
+    key = license_key or os.environ.get("LEAKGUARD_LICENSE_KEY", "community")
+    endpoint = os.environ.get("LEAKGUARD_API_URL", "http://localhost:3000/api/admin/license/verify")
+    
+    payload = json.dumps({"licenseKey": key, "repo": repo_name or os.environ.get("GITHUB_REPOSITORY", "")}).encode("utf-8")
+    req = urllib.request.Request(endpoint, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data
+    except Exception:
+        # Fallback offline validation
+        key_lower = key.lower()
+        plan = "team" if "team" in key_lower else "business" if "business" in key_lower else "enterprise" if "ent" in key_lower else "community"
+        return {
+            "ok": True,
+            "valid": True,
+            "plan": plan,
+            "message": f"Offline License Mode ({plan.upper()} Plan active)"
+        }
+
+
 def run_ci(targets: list[str], ensemble: bool = False, changed_only: bool = False,
            base: str | None = None, quiet: bool = False,
-           emit_annotations: bool = True) -> int:
+           emit_annotations: bool = True, license_key: str | None = None) -> int:
     from .ensemble import run_ensemble
+
+    # Validate License Key
+    lic_info = verify_license(license_key)
+    if not quiet:
+        print(f"🔑 LeakGuard License: {lic_info.get('message', 'Active')}")
+        if lic_info.get("plan") in ("business", "enterprise"):
+            print("🧠 LLM Shared Knowledgebase Sync: Enabled")
 
     if changed_only:
         files = changed_python_files(base)
@@ -239,6 +275,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="Scan only files changed vs git (PR-friendly)")
     parser.add_argument("--base", default=None, help="Git ref to diff against (with --changed-only)")
     parser.add_argument("--ensemble", action="store_true", help="Include ruff+CodeGate ensemble verification")
+    parser.add_argument("--license-key", default=None, help="LeakGuard License Key (Community, Team, Business, Enterprise)")
     parser.add_argument("--quiet", action="store_true", help="Suppress human summary (annotations still emitted)")
     parser.add_argument("--hook", action="store_true",
                         help=argparse.SUPPRESS)  # pre-commit hook mode: human output, no annotations
@@ -246,7 +283,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.hook:
         return run_ci(args.targets, ensemble=False, changed_only=False,
-                      quiet=False, emit_annotations=False)
+                      quiet=False, emit_annotations=False, license_key=args.license_key)
 
     return run_ci(
         args.targets,
@@ -255,6 +292,7 @@ def main(argv: list[str] | None = None) -> int:
         base=args.base,
         quiet=args.quiet,
         emit_annotations=True,
+        license_key=args.license_key,
     )
 
 

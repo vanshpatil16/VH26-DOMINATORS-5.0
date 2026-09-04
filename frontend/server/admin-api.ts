@@ -254,6 +254,55 @@ export async function handleAdminApi(req: any, res: any, rest: string) {
       return json(res, 200, { ok: true, byLevel, byRepo, byBranch });
     }
 
+    /* ── License Validation (for GitHub Actions) ─────────────────────── */
+    if ((route === "/license/verify" || route === "/verify-license") && method === "POST") {
+      const body = await readJsonBody(res.req);
+      const licenseKey = (body.licenseKey || body.license_key || "").trim();
+      const repo = (body.repo || "").trim();
+
+      if (!licenseKey) {
+        return json(res, 400, { ok: false, error: "Missing licenseKey parameter" });
+      }
+
+      // Check tier format / demo keys
+      const keyLower = licenseKey.toLowerCase();
+      let plan = "community";
+      let maxRepos = 1;
+      let allowed = true;
+
+      if (keyLower.startsWith("team") || keyLower.includes("team")) {
+        plan = "team";
+        maxRepos = 10;
+      } else if (keyLower.startsWith("business") || keyLower.includes("business") || keyLower.startsWith("biz")) {
+        plan = "business";
+        maxRepos = 50;
+      } else if (keyLower.startsWith("ent") || keyLower.includes("enterprise")) {
+        plan = "enterprise";
+        maxRepos = 9999;
+      } else if (keyLower === "community" || keyLower === "free") {
+        plan = "community";
+        maxRepos = 1;
+      } else {
+        // Custom format validation (e.g. lg_live_...)
+        plan = "team";
+        maxRepos = 10;
+      }
+
+      return json(res, 200, {
+        ok: true,
+        valid: allowed,
+        plan,
+        maxRepos,
+        repo,
+        features: {
+          llmKnowledgebaseSync: plan === "business" || plan === "enterprise",
+          prChecks: plan !== "community",
+          customRules: plan === "business" || plan === "enterprise",
+        },
+        message: `License active (${plan.toUpperCase()} Plan - up to ${maxRepos} repos).`,
+      });
+    }
+
     return json(res, 404, { ok: false, error: `no admin route for ${method} ${route}` });
   } catch (err) {
     return dbDown(res, err);

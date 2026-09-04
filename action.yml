@@ -22,6 +22,10 @@ inputs:
     description: 'Include ruff + CodeGate ensemble verification (true/false)'
     required: false
     default: 'true'
+  license-key:
+    description: 'LeakGuard License Key (Community, Team, Business, Enterprise)'
+    required: false
+    default: 'community'
 
 runs:
   using: 'composite'
@@ -50,5 +54,8 @@ runs:
         fi
         if [ "${{ inputs.ensemble }}" = "true" ]; then
           CMD="$CMD --ensemble"
+        fi
+        if [ -n "${{ inputs.license-key }}" ]; then
+          CMD="$CMD --license-key ${{ inputs.license-key }}"
         fi
         $CMD
