@@ -1,0 +1,54 @@
+name: 'LeakGuard CodeGate Analyzer'
+description: 'Path-sensitive resource leak analyzer for Python code bases'
+author: 'VH26 DOMINATORS 5.0'
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  targets:
+    description: 'Files or directories to scan (default: .)'
+    required: false
+    default: '.'
+  changed-only:
+    description: 'Scan only changed files against base ref (true/false)'
+    required: false
+    default: 'false'
+  base:
+    description: 'Git ref to diff against when changed-only is true'
+    required: false
+    default: 'origin/main'
+  ensemble:
+    description: 'Include ruff + CodeGate ensemble verification (true/false)'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install LeakGuard Dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install python-scalpel --no-deps
+        pip install astor graphviz typeshed-client pycg libcst
+        pip install -e ${{ github.action_path }}
+
+    - name: Run LeakGuard Analysis
+      shell: bash
+      run: |
+        CMD="python -m codegate.ci"
+        if [ "${{ inputs.changed-only }}" = "true" ]; then
+          CMD="$CMD --changed-only --base ${{ inputs.base }}"
+        else
+          CMD="$CMD ${{ inputs.targets }}"
+        fi
+        if [ "${{ inputs.ensemble }}" = "true" ]; then
+          CMD="$CMD --ensemble"
+        fi
+        $CMD
