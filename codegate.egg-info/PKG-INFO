@@ -4,11 +4,16 @@ Version: 0.1.0
 Summary: CodeGate: Static resource-leak analyzer for Python (Scalpel CFG + LibCST fix)
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: libcst>=1.0
 Requires-Dist: networkx
 Requires-Dist: astor
 Requires-Dist: astunparse
 Requires-Dist: graphviz
+Provides-Extra: ensemble
+Requires-Dist: semgrep>=1.60; extra == "ensemble"
+Requires-Dist: ruff>=0.4; extra == "ensemble"
+Dynamic: license-file
 
 # CodeGate — Static Resource-Leak Analyzer for Python
 

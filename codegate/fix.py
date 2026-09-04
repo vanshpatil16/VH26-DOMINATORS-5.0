@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import ast
+
 import libcst as cst
 from libcst.metadata import PositionProvider
 from pathlib import Path
@@ -148,13 +150,23 @@ class _WithFixer(cst.CSTTransformer):
         return updated
 
 
+def _fixable(leaks: list[Leak]) -> list[Leak]:
+    """Only SAFE fixability may be transformed (§5: detection and fixability
+    are separate; a wrong autofix is worse than no autofix)."""
+    return [lk for lk in leaks if getattr(lk, "fixability", "unknown") == "safe"]
+
+
 def fix_source(source: str, leaks: list[Leak], config: CodeGateConfig | None = None) -> str:
-    """Apply with-fix for each leak (one per function for MVP). Returns new source."""
-    if not leaks:
+    """Apply with-fix for each SAFE leak (one per function). Returns new source.
+
+    Unsafe/unknown fixability findings are left untouched on purpose (§4/§5/§25).
+    """
+    safe = _fixable(leaks)
+    if not safe:
         return source
     # Group leaks by function (fix one leak per function at a time for simplicity)
     by_func: dict[str, Leak] = {}
-    for lk in leaks:
+    for lk in safe:
         # Keep first leak per func
         if lk.func not in by_func:
             by_func[lk.func] = lk
@@ -178,6 +190,64 @@ def fix_source(source: str, leaks: list[Leak], config: CodeGateConfig | None = N
                 print(f"[fix] warning: failed to fix {func_name}: {e} / {e2}")
                 continue
     return module.code
+
+
+def fix_source_validated(source: str, leaks: list[Leak], config: CodeGateConfig | None = None
+                         ) -> dict:
+    """Full autofix validation pipeline (§27):
+
+        Detect leak → SAFE-only candidate → LibCST transform → parse check
+        → re-run CodeGate → targeted leak gone? no new definite leaks?
+        → accept / reject
+
+    Returns {"applied": bool, "code": str, "rejected": [reasons]}.
+    """
+    from .analyzer import analyze_source
+    if config is None:
+        config = CodeGateConfig.default()
+
+    safe = _fixable(leaks)
+    if not safe:
+        return {"applied": False, "code": source, "rejected": [
+            "no SAFE-fixability findings (unsafe/unknown left unmodified)"]}
+
+    def definite_set(src: str) -> set[tuple]:
+        return {
+            (lk.func, lk.acquire_line, lk.kind)
+            for lk in analyze_source(src, filename="<fixval>", config=config)
+            if lk.confidence == "definite"
+        }
+
+    before = definite_set(source)
+    rejected: list[str] = []
+    candidate = source
+    for lk in safe:
+        step = fix_source(candidate, [lk], config)
+        if step == candidate:
+            continue  # transformer made no change for this leak
+        # 1) syntax check
+        try:
+            ast.parse(step)
+        except SyntaxError as e:
+            rejected.append(f"{lk.func}:{lk.acquire_line} — transformed code does not parse: {e}")
+            continue
+        # 2) targeted leak must be gone
+        after = analyze_source(step, filename="<fixval>", config=config)
+        still = [x for x in after if x.acquire_line == lk.acquire_line
+                 and x.func == lk.func and x.confidence == "definite"]
+        if still:
+            rejected.append(f"{lk.func}:{lk.acquire_line} — targeted definite leak still present after fix")
+            continue
+        # 3) no new definite leaks anywhere
+        new_definite = definite_set(step) - before
+        if new_definite:
+            rejected.append(f"{lk.func}:{lk.acquire_line} — fix would introduce new definite leaks: {sorted(new_definite)}")
+            continue
+        candidate = step  # accept
+
+    if candidate == source:
+        return {"applied": False, "code": source, "rejected": rejected or ["no applicable safe fix"]}
+    return {"applied": True, "code": candidate, "rejected": rejected}
 
 
 def fix_file(path: str | Path, leaks: list[Leak] | None = None, config: CodeGateConfig | None = None, in_place: bool = False) -> str:

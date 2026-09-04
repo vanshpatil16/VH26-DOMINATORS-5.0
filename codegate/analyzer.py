@@ -33,9 +33,27 @@ class Leak:
     safe_path_sources: list[list[str]] = field(default_factory=list)
     # Short exception-risk explanation (rendered separately from message)
     exception_note: str = ""
+    # ── Structured finding schema (CODEGATE001) ──
+    rule: str = "CODEGATE001"
+    # error = definite leak; warning = potential/unknown
+    severity: str = "error"
+    # definite = proven by CFG; potential = may escape via unknown callee
+    confidence: str = "definite"
+    # resource category (file/socket/db/http/process) from the matched spec
+    resource_type: str = "file"
+    # cleanup guarantee found by the analyzer (line of the close on safe paths)
+    cleanup_line: int | None = None
+    # safe | unsafe | unknown  — detection and fixability are separate
+    fixability: str = "unknown"
+    # labeled reasons: "early return", "exception escape", "unreleased on path", ...
+    leak_reasons: list[str] = field(default_factory=list)
 
     def to_dict(self):
         return {
+            "rule": self.rule,
+            "severity": self.severity,
+            "confidence": self.confidence,
+            "resource_type": self.resource_type,
             "file": self.file,
             "func": self.func,
             "line": self.line,
@@ -49,6 +67,9 @@ class Leak:
             "leaking_paths": self.paths,
             "safe_paths": self.safe_paths,
             "exception_note": self.exception_note,
+            "cleanup_line": self.cleanup_line,
+            "fixability": self.fixability,
+            "leak_reasons": self.leak_reasons,
         }
 
 
@@ -169,8 +190,17 @@ def _find_aliases_for_resource(all_blocks, resource_var: str, resource_res_id: i
 
 
 def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateConfig,
-                         import_map: dict[str, str] | None = None) -> list[Leak]:
-    """Analyze a single function CFG, return leaks."""
+                         import_map: dict[str, str] | None = None,
+                         param_effects: dict[str, dict[str, str]] | None = None,
+                         lexical_flags: dict[int, dict] | None = None) -> list[Leak]:
+    """Analyze a single function CFG, return leaks.
+
+    Resource instances are tracked with unique ids (their acquisition line).
+    Per-resource flags (reassigned / escaped_unknown / cleanups) accumulate
+    across paths and decide confidence + fixability at leak creation:
+      confidence: definite (proven) vs potential (may escape via unknown callee)
+      fixability: safe | unsafe (e.g. overwrite) | unknown (loops/try/transfer)
+    """
     resources = config.resources
     blocks = get_all_blocks_filtered(fcfg)
     if not blocks:
@@ -203,6 +233,41 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
 
     # Track paths per res_id: leaking paths vs safe paths
     path_evidence: dict[int, dict] = {}  # res_id -> {"leaking": [], "safe": []}
+
+    # Resource-instance flags — accumulate across paths (NOT copied per path):
+    #   reassigned: the handle var was overwritten while resource was live
+    #   escaped_unknown: passed to an unknown external callee (may close or not)
+    #   cleanups: lines of successful release calls observed on any path
+    res_flags: dict[int, dict] = {}
+
+    def _flags(res_id: int) -> dict:
+        return res_flags.setdefault(res_id, {"reassigned": False, "escaped_unknown": False, "cleanups": []})
+
+    def _finalize(leak: Leak, res_id: int, reason: str) -> Leak:
+        """Resolve confidence/fixability/severity from accumulated instance flags."""
+        fl = _flags(res_id)
+        if reason not in leak.leak_reasons:
+            leak.leak_reasons.append(reason)
+        if fl.get("cleanups"):
+            leak.cleanup_line = min(fl["cleanups"])
+        spec = next((r for r in resources if r.matches_acquire(leak.acquire)), None)
+        if spec is not None:
+            leak.resource_type = _spec_type(spec)
+        if fl.get("escaped_unknown"):
+            leak.confidence = "potential"
+            leak.severity = "warning"
+            leak.fixability = "unknown"
+        elif fl.get("reassigned"):
+            leak.confidence = "definite"
+            leak.fixability = "unsafe"
+        else:
+            leak.confidence = "definite"
+            lf = (lexical_flags or {}).get(leak.acquire_line, {})
+            if lf.get("in_loop") or lf.get("in_try"):
+                leak.fixability = "unknown"
+            else:
+                leak.fixability = "safe"
+        return leak
 
     def _process_block(block, live: dict[str, int], res_info: dict[int, tuple[str, str, str]], path: list[int]):
         """Simulate block statements sequentially, updating live/res_info. Returns (new_live, new_res_info, leaks_inside, new_path)"""
@@ -249,7 +314,7 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
                         if prev_res not in found_leaks:
                             orig_var, acq_n, rel_n = new_res[prev_res]
                             col = stmt.col_offset if hasattr(stmt, "col_offset") else 0
-                            found_leaks[prev_res] = Leak(
+                            lk = Leak(
                                 file=file_path,
                                 func=func_name,
                                 line=stmt.lineno,
@@ -257,9 +322,17 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
                                 var=orig_var,
                                 acquire=acq_n,
                                 release=rel_n,
-                                message=f"Resource '{orig_var}' acquired at line {prev_res} leaked: overwritten by '{var} = {acq_name}(...)' at line {stmt.lineno} before release",
+                                message=(
+                                    f"Resource '{orig_var}' acquired at line {prev_res} leaked: overwritten by "
+                                    f"'{var} = {acq_name}(...)' at line {stmt.lineno} before release. "
+                                    f"Automatic fix not applied because removing the first acquisition "
+                                    f"could change program behavior — close Resource #{prev_res} before "
+                                    f"reassignment, or use separate context-managed variables."
+                                ),
                                 acquire_line=prev_res,
                             )
+                            _flags(prev_res)["reassigned"] = True
+                            found_leaks[prev_res] = _finalize(lk, prev_res, "reassignment")
                             path_evidence.setdefault(prev_res, {"leaking": [], "safe": []})
                         path_evidence[prev_res]["leaking"].append(list(path) + [block.id])
                     # Remove prev mapping from live (or keep if alias holds? already checked)
@@ -308,12 +381,14 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
                                 if prev_res not in found_leaks:
                                     orig_var, acq_n, rel_n = new_res[prev_res]
                                     col = stmt.col_offset if hasattr(stmt, "col_offset") else 0
-                                    found_leaks[prev_res] = Leak(
+                                    lk = Leak(
                                         file=file_path, func=func_name, line=stmt.lineno, col=col,
                                         var=orig_var, acquire=acq_n, release=rel_n,
                                         message=f"Resource '{orig_var}' acquired at line {prev_res} leaked: alias '{lhs}' overwritten",
                                         acquire_line=prev_res,
                                     )
+                                    _flags(prev_res)["reassigned"] = True
+                                    found_leaks[prev_res] = _finalize(lk, prev_res, "reassignment")
                                     path_evidence.setdefault(prev_res, {"leaking": [], "safe": []})
                                 path_evidence[prev_res]["leaking"].append(list(path)+[block.id])
                         # Create alias link
@@ -330,12 +405,14 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
                                 if prev_res not in found_leaks:
                                     orig_var, acq_n, rel_n = new_res[prev_res]
                                     col = stmt.col_offset if hasattr(stmt, "col_offset") else 0
-                                    found_leaks[prev_res] = Leak(
+                                    lk = Leak(
                                         file=file_path, func=func_name, line=stmt.lineno, col=col,
                                         var=orig_var, acquire=acq_n, release=rel_n,
                                         message=f"Resource '{orig_var}' acquired at line {prev_res} leaked: handle '{lhs}' overwritten by non-resource at line {stmt.lineno}",
                                         acquire_line=prev_res,
                                     )
+                                    _flags(prev_res)["reassigned"] = True
+                                    found_leaks[prev_res] = _finalize(lk, prev_res, "reassignment")
                                     path_evidence.setdefault(prev_res, {"leaking": [], "safe": []})
                                 path_evidence[prev_res]["leaking"].append(list(path)+[block.id])
                             del new_live[lhs]
@@ -352,12 +429,14 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
                             if prev_res not in found_leaks:
                                 orig_var, acq_n, rel_n = new_res[prev_res]
                                 col = stmt.col_offset if hasattr(stmt, "col_offset") else 0
-                                found_leaks[prev_res] = Leak(
+                                lk = Leak(
                                     file=file_path, func=func_name, line=stmt.lineno, col=col,
                                     var=orig_var, acquire=acq_n, release=rel_n,
                                     message=f"Resource '{orig_var}' acquired at line {prev_res} leaked: overwritten at line {stmt.lineno}",
                                     acquire_line=prev_res,
                                 )
+                                _flags(prev_res)["reassigned"] = True
+                                found_leaks[prev_res] = _finalize(lk, prev_res, "reassignment")
                                 path_evidence.setdefault(prev_res, {"leaking": [], "safe": []})
                             path_evidence[prev_res]["leaking"].append(list(path)+[block.id])
                         del new_live[lhs]
@@ -373,6 +452,9 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
                     to_close.add(res_id)
             if to_close:
                 for res_id in to_close:
+                    # record cleanup guarantee for diagnostics/fixability
+                    if hasattr(stmt, "lineno"):
+                        _flags(res_id)["cleanups"].append(stmt.lineno)
                     # Remove all var -> res mappings for this res
                     vars_to_remove = [v for v, r in list(new_live.items()) if r == res_id]
                     for v in vars_to_remove:
@@ -407,7 +489,66 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
                     for v in vars_to_remove:
                         del new_live[v]
 
-            # Note: function calls like helper(f) where helper might close are NOT handled in MVP intraprocedural — will be reported as leak (conservative)
+            # 3.5) Interprocedural call sites: helper(f). Known local callees
+            # are consulted via parameter effects; UNKNOWN external callees get
+            # the unknown-call policy (§16): the handle may be closed or may
+            # escape — record the uncertainty, never claim certainty.
+            if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) \
+                    and isinstance(stmt.value.func, ast.Name) and param_effects is not None:
+                callee = stmt.value.func.id
+                callee_info = param_effects.get(callee)  # None => unknown external
+                if callee_info is None:
+                    # Unknown external callee (§16): the handle may be closed
+                    # inside it or may escape — record the uncertainty.
+                    for argnode in stmt.value.args:
+                        if isinstance(argnode, ast.Name) and argnode.id in new_live:
+                            _flags(new_live[argnode.id])["escaped_unknown"] = True
+                            _flags(new_live[argnode.id]).setdefault(
+                                "unknown_callees", set()).add(callee)
+                if callee_info:
+                    callee_params = callee_info.get("params", [])
+                    effects_map = callee_info.get("effects", {})
+                    for pos, argnode in enumerate(stmt.value.args):
+                        if not (isinstance(argnode, ast.Name) and argnode.id in new_live):
+                            continue
+                        param = callee_params[pos] if pos < len(callee_params) else None
+                        effect = effects_map.get(param, "unknown") if param else "unknown"
+                        res_id = new_live[argnode.id]
+                        if effect in ("releases", "escapes"):
+                            # helper closes the resource on all paths, or takes
+                            # ownership out (returns it) — fate decided, not a leak
+                            for v in [v for v, r in list(new_live.items()) if r == res_id]:
+                                del new_live[v]
+                        elif effect == "leaks":
+                            # helper leaks its parameter — propagate evidence here
+                            other_holders = [v for v, r in new_live.items() if r == res_id and v != argnode.id]
+                            if not other_holders:
+                                orig_var, acq_n, rel_n = new_res.get(res_id, (argnode.id, "?", "close"))
+                                if res_id not in found_leaks:
+                                    col = stmt.col_offset if hasattr(stmt, "col_offset") else 0
+                                    lk = Leak(
+                                        file=file_path, func=func_name, line=stmt.lineno, col=col,
+                                        var=orig_var, acquire=acq_n, release=rel_n,
+                                        message=(
+                                            f"Resource '{orig_var}' acquired at line {res_id} leaked: "
+                                            f"passed to '{callee}()' at line {stmt.lineno}, which never "
+                                            f"closes its parameter on some path inside it"
+                                        ),
+                                        acquire_line=res_id,
+                                    )
+                                    found_leaks[res_id] = _finalize(lk, res_id, f"leaked inside callee '{callee}()'")
+                                    path_evidence.setdefault(res_id, {"leaking": [], "safe": []})
+                                path_evidence[res_id]["leaking"].append(list(path) + [block.id])
+                                local_leaks.append(res_id)
+                                for v in [v for v, r in list(new_live.items()) if r == res_id]:
+                                    del new_live[v]
+                        else:
+                            # effect == "unknown" OR unknown external callee:
+                            # leave live (conservative) but record that the
+                            # resource may escape via an unknown callee —
+                            # at exit this downgrades DEFINITE -> POTENTIAL (§16)
+                            _flags(res_id)["escaped_unknown"] = True
+                            _flags(res_id).setdefault("unknown_callees", set()).add(callee)
 
         return new_live, new_res, local_leaks
 
@@ -423,10 +564,35 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
     def dfs(block, live: dict[str, int], res_info: dict[int, tuple[str, str, str]], path: list[int], visited: set[int]):
         nonlocal path_count
         if block.id in visited:
-            # Loop back edge — consider this path as one iteration then stop
-            # If live resources survive loop without close, they will be caught at exit or via other path
-            # For leak detection, encountering a loop without close on any iteration is not enough; we need to know if close inside loop
-            # Our visited guard ensures we visit loop once — ok for hackathon
+            # Loop back edge (continue / end-of-body loop-back / break).
+            # Resources acquired INSIDE the loop body that are still live on
+            # this back-edge are orphaned for this iteration: the next
+            # iteration acquires a new instance while the old one is never
+            # released (e.g. `continue` bypassing the close). Resources
+            # acquired OUTSIDE the loop legitimately stay live across
+            # iterations, so they are exempt (lexical check).
+            for var, res_id in list(live.items()):
+                if res_id in found_leaks:
+                    continue
+                acq_line = res_id if res_id < 10000 else res_id // 1000
+                lf = (lexical_flags or {}).get(acq_line, {})
+                if not lf.get("in_loop"):
+                    continue
+                orig_var, acq_name, rel_name = res_info.get(res_id, (var, "?", "close"))
+                col = 0
+                lk = Leak(
+                    file=file_path, func=func_name, line=acq_line, col=col,
+                    var=orig_var, acquire=acq_name, release=rel_name,
+                    message=(
+                        f"Resource '{orig_var}' acquired at line {acq_line} inside a loop is not "
+                        f"released before the loop back-edge (continue/break path) — each such "
+                        f"iteration orphans the previous instance (leak path via blocks {path})"
+                    ),
+                    acquire_line=acq_line,
+                )
+                found_leaks[res_id] = _finalize(lk, res_id, "loop bypass (continue/break)")
+                path_evidence.setdefault(res_id, {"leaking": [], "safe": []})
+                path_evidence[res_id]["leaking"].append(list(path))
             return
         visited = visited | {block.id}
         path = path + [block.id]
@@ -450,6 +616,11 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
         is_final = not block.exits
         if is_final:
             path_count += 1
+            # reason label from the terminal block's shape (§22)
+            has_return = any(isinstance(s, ast.Return) for s in block.statements)
+            has_raise = any(isinstance(s, ast.Raise) for s in block.statements)
+            reason = ("exception escape" if has_raise
+                      else "early return" if has_return else "fall-through exit")
             if new_live:
                 for var, res_id in new_live.items():
                     # Each remaining live resource is a leak on this path
@@ -460,7 +631,17 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
                         acq_line = res_id if res_id < 10000 else res_id // 1000
                         col = block.statements[0].col_offset if block.statements and hasattr(block.statements[0], "col_offset") else 0
                         # Find acquire stmt line for better message
-                        found_leaks[res_id] = Leak(
+                        fl = _flags(res_id)
+                        if fl.get("escaped_unknown"):
+                            callees = ", ".join(sorted(fl.get("unknown_callees", {"unknown"})))
+                            msg = (
+                                f"Resource '{orig_var}' acquired at line {acq_line} may not be released: "
+                                f"it may escape via unknown external call(s) '{callees}', whose cleanup "
+                                f"behavior cannot be proven (potential leak, paths {path})"
+                            )
+                        else:
+                            msg = f"Resource '{orig_var}' acquired at line {acq_line} not released on all paths (leak path via blocks {path})"
+                        lk = Leak(
                             file=file_path,
                             func=func_name,
                             line=acq_line,
@@ -468,9 +649,10 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
                             var=orig_var,
                             acquire=acq_name,
                             release=rel_name,
-                            message=f"Resource '{orig_var}' acquired at line {acq_line} not released on all paths (leak path via blocks {path})",
+                            message=msg,
                             acquire_line=acq_line,
                         )
+                        found_leaks[res_id] = _finalize(lk, res_id, reason)
                         path_evidence.setdefault(res_id, {"leaking": [], "safe": []})
                     path_evidence[res_id]["leaking"].append(list(path))
                 # For resources that were closed or transferred along this path, they are safe on this path
@@ -559,10 +741,19 @@ def analyze_source_with_cfg(source: str, filename: str = "<string>", config: Cod
     cfg = build_cfg(source, name=filename)
     leaks: list[Leak] = []
 
+    # Interprocedural pass: per-function parameter effects, computed once.
+    # Consulted at call sites (helper(f) etc.) during the path DFS.
+    from .interproc import compute_param_effects
+    param_effects = compute_param_effects(cfg)
+
+    # Lexical context per acquire line (loop/try body) — fixes fixability.
+    lexical_flags = _lexical_resource_flags(ast.parse(source))
+
     # Analyze each function cfg
     for (block_id, func_name), fcfg in cfg.functioncfgs.items():
         file_for_report = filename
-        func_leaks = analyze_function_cfg(fcfg, func_name, file_for_report, config, import_map)
+        func_leaks = analyze_function_cfg(fcfg, func_name, file_for_report, config,
+                                          import_map, param_effects, lexical_flags)
         leaks.extend(func_leaks)
 
     if cfg.entryblock is not None:
@@ -577,7 +768,8 @@ def analyze_source_with_cfg(source: str, filename: str = "<string>", config: Cod
             if has_acquire_at_top:
                 break
         if has_acquire_at_top:
-            top_leaks = analyze_function_cfg(cfg, "<module>", filename, config, import_map)
+            top_leaks = analyze_function_cfg(cfg, "<module>", filename, config,
+                                             import_map, param_effects, lexical_flags)
             leaks.extend(top_leaks)
 
     # HARDEN-3: exception-safety pass (may-throw calls leaking live resources)
@@ -634,6 +826,52 @@ def analyze_file(path: str | Path, config: CodeGateConfig | None = None) -> list
 # ---------------------------------------------------------------------------
 
 _SCOPE_NODES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+
+
+def _spec_type(spec: ResourceSpec) -> str:
+    """Categorize a resource spec for structured diagnostics."""
+    a = spec.acquire
+    if "socket" in a:
+        return "socket"
+    if any(k in a for k in ("sqlite", "psycopg", "mysql", "pymongo", "mongo")):
+        return "database"
+    if any(k in a for k in ("requests", "httpx")):
+        return "http"
+    if any(k in a for k in ("Popen", "Process", "subprocess", "multiprocessing")):
+        return "process"
+    if "tempfile" in a:
+        return "tempfile"
+    return "file"
+
+
+def _lexical_resource_flags(tree: ast.AST) -> dict[int, dict]:
+    """Per acquire-line lexical context: inside a loop body or try body?
+    Used for fixability: wrapping loop/try code in `with` is not proven safe.
+    """
+    flags: dict[int, dict] = {}
+
+    def visit(node: ast.AST, in_loop: bool, in_try: bool) -> None:
+        for child in ast.iter_child_nodes(node):
+            c_loop = in_loop or isinstance(child, (ast.For, ast.While, ast.AsyncFor))
+            c_try = in_try or isinstance(child, ast.Try)
+            if isinstance(child, (ast.Assign, ast.AnnAssign)) and isinstance(child.value, ast.Call):
+                flags.setdefault(child.lineno, {})["in_loop"] = c_loop
+                flags.setdefault(child.lineno, {})["in_try"] = c_try
+            visit(child, c_loop, c_try)
+
+    visit(tree, False, False)
+    return flags
+
+
+# Calls that are effectively pure / cannot realistically raise (§15: consistent
+# unknown-call policy — do not assume every call definitely throws).
+_PURE_BUILTINS = {
+    "print", "range", "len", "int", "str", "float", "bool", "bytes", "list",
+    "dict", "set", "tuple", "frozenset", "isinstance", "issubclass", "sorted",
+    "reversed", "enumerate", "zip", "map", "filter", "min", "max", "sum",
+    "abs", "round", "repr", "hash", "id", "type", "super", "ord", "chr",
+    "divmod", "pow", "slice", "staticmethod", "classmethod",
+}
 
 
 def _walk_own(node: ast.AST):
@@ -704,6 +942,10 @@ def _exception_leak_candidates(
                                     try_regions.append(
                                         (n.lineno, n.body[-1].end_lineno, True, False))
         elif isinstance(n, ast.Call):
+            # unknown-call policy (§15/§16): pure builtins cannot realistically
+            # raise — exclude them from may-throw reasoning to avoid noise.
+            if isinstance(n.func, ast.Name) and n.func.id in _PURE_BUILTINS:
+                continue
             calls.append(n)
         elif isinstance(n, ast.Assign) and len(n.targets) == 1 \
                 and isinstance(n.targets[0], ast.Name) and isinstance(n.value, ast.Name):
@@ -791,6 +1033,35 @@ def _exception_leaks_for(
     return extra
 
 
+def _non_raising_functions(tree: ast.AST) -> set[str]:
+    """Local functions whose bodies provably cannot raise (no calls at all,
+    transitively). Used by the exception pass for a consistent unknown-call
+    policy: calling a function that cannot raise cannot leak by raising.
+    """
+    has_call: set[str] = set()
+    bodies: dict[str, list[ast.stmt]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            bodies[node.name] = node.body
+            for n in _walk_own(node):
+                if isinstance(n, ast.Call):
+                    has_call.add(node.name)
+                    break
+    # propagate: caller depends on callees
+    changed = True
+    while changed:
+        changed = False
+        for name, body in bodies.items():
+            if name in has_call:
+                continue
+            for n in _walk_own(ast.Module(body=body, type_ignores=[])):  # type: ignore[arg-type]
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in has_call:
+                    has_call.add(name)
+                    changed = True
+                    break
+    return set(bodies) - has_call
+
+
 def analyze_exception_safety(
     source: str,
     path_leaks: list[Leak],
@@ -833,6 +1104,7 @@ def analyze_exception_safety(
             bad_calls = _exception_leak_candidates(node, n.lineno, var, rel_name)
             if bad_calls:
                 first_line, first_name = bad_calls[0]
+                spec = next((r for r in config.resources if r.matches_acquire(acq_name)), None)
                 new_leaks.append(Leak(
                     file=path_leaks[0].file if path_leaks else "<string>",
                     func=node.name,
@@ -848,6 +1120,13 @@ def analyze_exception_safety(
                     ),
                     acquire_line=n.lineno,
                     kind="exception",
+                    # Exceptional leaks follow the documented unknown-call policy:
+                    # unknown external calls may raise -> the exceptional path exists.
+                    severity="error",
+                    confidence="definite",
+                    resource_type=_spec_type(spec) if spec else "file",
+                    fixability="unknown",  # try/finally insertion not auto-applied
+                    leak_reasons=["exception escape"],
                     exception_note=(
                         f"Exception risk: if '{first_name}()' (line {first_line}) raises, "
                         f"'{var}' leaks — normal paths close it, errors don't."

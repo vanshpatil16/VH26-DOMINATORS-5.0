@@ -119,11 +119,15 @@ def format_text(leaks: list[Leak], use_color: bool = True) -> str:
         "",
     ]
     for lk in leaks:
-        lines.append(f"{c.BOLD}{c.RED}┌─ 🔴 LEAK{c.RESET}  {c.BOLD}{lk.file}:{lk.acquire_line}{c.RESET}"
-                     f" {c.GRAY}· in {lk.func}(){c.RESET}")
+        title = "DEFINITE RESOURCE LEAK" if lk.confidence == "definite" else "POTENTIAL RESOURCE LEAK"
+        lines.append(f"{c.BOLD}{c.RED}┌─ 🔴 {title}{c.RESET}  {c.BOLD}{lk.file}:{lk.acquire_line}{c.RESET}"
+                     f" {c.GRAY}· in {lk.func}() · {lk.rule} · {lk.resource_type}{c.RESET}")
         lines.append(f"{c.RED}│{c.RESET}")
         lines.append(f"{c.RED}│{c.RESET}  {c.BOLD}'{lk.var}' = {lk.acquire}(...){c.RESET}"
                      f" {c.GRAY}— is not guaranteed to be {lk.release}()'d{c.RESET}")
+        if lk.leak_reasons:
+            lines.append(f"{c.RED}│{c.RESET}  {c.GRAY}leak paths: {c.RESET}"
+                         + ", ".join(f"{c.RED}{r}{c.RESET}" for r in lk.leak_reasons))
 
         # leaking path (statement-level summary)
         if lk.path_sources:

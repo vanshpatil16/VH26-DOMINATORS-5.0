@@ -39,10 +39,52 @@ def _ensure_scalpel_importable() -> None:
 
 _ensure_scalpel_importable()
 
-from scalpel.cfg.builder import CFGBuilder  # noqa: E402
+from scalpel.cfg.builder import CFGBuilder, merge_exitcases  # noqa: E402
 from scalpel.cfg.model import Block, CFG  # noqa: E402
 
 _PATCHED = False
+
+
+def _patched_clean_cfg(self, block: "Block", visited: list):
+    """Fixed clean_cfg — keeps genuine terminal exits.
+
+    Scalpel's original removes empty tail blocks (function falling off the end
+    after an `if`), which DELETES the fall-through path. That made `def h(f):
+    if x: f.close()` look like it always closes. Fix: an empty block with no
+    exits but with predecessors is a genuine function exit — keep it.
+    """
+    if block.id in visited:
+        return
+    visited.append(block.id)
+
+    if block.is_empty() and not block.exits and block.predecessors:
+        # terminal exit node: fall off the end of the function. Keep it.
+        if block not in self.cfg.finalblocks:
+            self.cfg.finalblocks.append(block)
+        for pred in list(block.predecessors):
+            self.clean_cfg(pred.source, visited)
+        return
+
+    # Original Scalpel logic for middle empty blocks (merge around them).
+    if block.is_empty():
+        for pred in block.predecessors:
+            for exit in block.exits:
+                self.add_exit(
+                    pred.source,
+                    exit.target,
+                    merge_exitcases(pred.exitcase, exit.exitcase),
+                )
+                if exit in exit.target.predecessors:
+                    exit.target.predecessors.remove(exit)
+            if pred in pred.source.exits:
+                pred.source.exits.remove(pred)
+        block.predecessors = []
+        for exit in block.exits[:]:
+            self.clean_cfg(exit.target, visited)
+        block.exits = []
+    else:
+        for exit in block.exits[:]:
+            self.clean_cfg(exit.target, visited)
 
 
 def _patched_visit_Try(self, node: ast.Try):
@@ -133,6 +175,7 @@ def apply_patches() -> None:
         return
     CFGBuilder.visit_Try = _patched_visit_Try
     CFGBuilder.visit_Return = _patched_visit_Return
+    CFGBuilder.clean_cfg = _patched_clean_cfg
     _PATCHED = True
 
 

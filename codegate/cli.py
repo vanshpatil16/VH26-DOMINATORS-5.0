@@ -13,6 +13,87 @@ from .fix import fix_file, fix_source
 from .report import Colors, format_all_cfgs, format_json, format_text, should_use_color
 
 
+def _scan_main(argv: list[str] | None = None) -> int:
+    """`codegate scan` — §32: scan, structured output, exit 1 only on DEFINITE."""
+    import argparse
+    parser = argparse.ArgumentParser(prog="codegate scan", description="Scan for resource leaks")
+    parser.add_argument("targets", nargs="*", default=["."], help="Files/dirs to scan (default: .)")
+    parser.add_argument("--format", choices=["text", "json"], default="text")
+    parser.add_argument("--ensemble", action="store_true")
+    parser.add_argument("--quiet", action="store_true")
+    args = parser.parse_args(argv)
+
+    from .analyzer import analyze_file
+    from .report import format_json, format_text
+    config = CodeGateConfig.default()
+
+    files = _collect_py_files(args.targets)
+    if not files:
+        if not args.quiet:
+            print("No Python files found.", file=sys.stderr)
+        return 1
+
+    all_leaks = []
+    for f in files:
+        try:
+            leaks = analyze_file(f, config)
+        except SyntaxError as e:
+            print(f"{f}: SyntaxError {e}", file=sys.stderr)
+            continue
+        all_leaks.extend(leaks)
+        if args.format == "text" and not args.quiet:
+            if [lk for lk in leaks if lk.confidence == "definite"] or leaks:
+                print(format_text(leaks, use_color=False))
+            else:
+                print(f"{f}: ✓ no leaks")
+
+    definite = [lk for lk in all_leaks if lk.confidence == "definite"]
+    if args.format == "json":
+        import json
+        print(json.dumps([lk.to_dict() for lk in all_leaks], indent=2))
+    # §32: potential/unknown findings never block CI
+    return 1 if definite else 0
+
+
+def _fix_main(argv: list[str] | None = None) -> int:
+    """`codegate fix` — §27: validated autofix; only SAFE fixes applied/written."""
+    import argparse
+    parser = argparse.ArgumentParser(prog="codegate fix", description="Apply validated safe autofixes")
+    parser.add_argument("target", help="Python file to fix")
+    parser.add_argument("--dry", action="store_true", help="Show result without writing")
+    args = parser.parse_args(argv)
+
+    from .analyzer import analyze_file
+    from .fix import fix_source_validated
+    from .report import format_text
+    config = CodeGateConfig.default()
+
+    p = Path(args.target)
+    src = p.read_text(encoding="utf-8")
+    leaks = analyze_file(p, config)
+    result = fix_source_validated(src, leaks, config)
+
+    if result["applied"]:
+        print(f"✓ applied validated fix to {args.target}")
+        for r in result.get("rejected", []):
+            print(f"  · rejected: {r}")
+        if args.dry:
+            print(result["code"])
+        else:
+            p.write_text(result["code"], encoding="utf-8")
+            print(f"  written: {args.target}")
+        return 0
+    print(f"no fix applied for {args.target}")
+    for r in result.get("rejected", []):
+        print(f"  · {r}")
+    # surface remaining definite leaks so caller knows why
+    remaining = [lk for lk in leaks if lk.confidence == "definite"]
+    if remaining:
+        print(format_text(remaining, use_color=False))
+        return 1
+    return 0
+
+
 def _collect_py_files(targets: list[str]) -> list[Path]:
     files: list[Path] = []
     for t in targets:
@@ -42,6 +123,10 @@ def main(argv: list[str] | None = None) -> int:
     if args_list and args_list[0] == "install-hook":
         from .ci import install_hook
         return install_hook()
+    if args_list and args_list[0] == "scan":
+        return _scan_main(args_list[1:])
+    if args_list and args_list[0] == "fix":
+        return _fix_main(args_list[1:])
 
     if hasattr(sys.stdout, "reconfigure"):
         try:

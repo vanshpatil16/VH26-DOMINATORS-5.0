@@ -101,6 +101,21 @@ def analyze_full(
         s.detail = f"{len(acquires)} acquire point(s)" if acquires else "no tracked resources acquired"
         s.data = {"acquires": acquires}
 
+    # --------------------------------------------- 4.5 interprocedural pass
+    with t.step("interproc", "Parameter-effects analysis (helper(f) semantics)") as s:
+        from .interproc import compute_param_effects
+        effects = compute_param_effects(cfg_root)
+        summarized = {}
+        for fn, info in effects.items():
+            interesting = {p: e for p, e in info["effects"].items() if e != "unknown"}
+            if interesting:
+                summarized[fn] = interesting
+        s.detail = (
+            f"{len(summarized)} helper(s) with releasable/escaping/leaking parameters"
+            if summarized else "no helpers that affect resource lifetime"
+        )
+        s.data = {"functions": summarized}
+
     # ------------------------------------------------------- 5 path analysis
     leaks: list[Leak] = []
     with t.step("paths", "Path-sensitive liveness analysis (DFS with alias tracking)") as s:

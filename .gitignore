@@ -32,3 +32,9 @@ Thumbs.db
 .idea/
 Scalpel/
 LibCST/
+
+.env
+.env.*
+codegate_resources.json
+vscode-extension/
+node_modules/
