@@ -1,2 +1,40 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnpm-store/
+
+# Python / CodeGate
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
 Scalpel/
 LibCST/
+codegate-report.txt
+leakguard-report.txt
+
+# Logs & Temporary files
+.manus-logs/
+*.log
+
+# Build outputs & Env
+dist/
+build/
+.env
+.env.local
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+Scalpel/
+LibCST/
+
+.env
+.env.*
+codegate_resources.json
+vscode-extension/
+node_modules/

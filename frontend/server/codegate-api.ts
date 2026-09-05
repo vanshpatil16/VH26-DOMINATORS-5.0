@@ -19,7 +19,44 @@ export interface CodegateRequest {
   ensemble?: boolean;
 }
 
+/**
+ * Try the persistent analysis server first (CODEGATE_SERVER_URL or
+ * http://127.0.0.1:8750) — it's ~10x faster (warm interpreter + content
+ * cache). Falls back to one-shot spawn when the server is unreachable.
+ */
+async function serverAvailable(url: string, timeoutMs = 800): Promise<boolean> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    const res = await fetch(`${url.replace(/\/$/, "")}/health`, { signal: ctrl.signal });
+    clearTimeout(t);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function runCodegateAnalysis(req: CodegateRequest): Promise<unknown> {
+  const serverUrl = process.env.CODEGATE_SERVER_URL || "http://127.0.0.1:8750";
+  if (await serverAvailable(serverUrl)) {
+    const res = await fetch(`${serverUrl.replace(/\/$/, "")}/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source: req.source,
+        filename: req.filename || "input.py",
+        fix: Boolean(req.fix),
+        ensemble: Boolean(req.ensemble),
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`CodeGate server error (HTTP ${res.status})`);
+    }
+    const result = await res.json();
+    (result as any)._transport = "server";
+    return result;
+  }
+
   const py = process.env.CODEGATE_PYTHON || (process.platform === "win32" ? "python" : "python3");
   const args = ["-m", "codegate.webapi", "-"];
   if (req.fix) args.push("--fix");
@@ -46,8 +83,23 @@ export async function runCodegateAnalysis(req: CodegateRequest): Promise<unknown
     );
     child.on("close", (code) => {
       try {
+        const firstBrace = out.indexOf("{");
+        const lastBrace = out.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+          const jsonStr = out.slice(firstBrace, lastBrace + 1);
+          resolve(JSON.parse(jsonStr));
+          return;
+        }
         resolve(JSON.parse(out));
       } catch {
+        if (out.trim().startsWith("{")) {
+          try {
+            resolve(JSON.parse(out.trim()));
+            return;
+          } catch {
+            // fall through
+          }
+        }
         reject(
           new Error(
             `CodeGate exited with code ${code}. stderr: ${err.slice(0, 400) || "(empty)"} stdout: ${out.slice(0, 400)}`,
@@ -55,7 +107,7 @@ export async function runCodegateAnalysis(req: CodegateRequest): Promise<unknown
         );
       }
     });
-    child.stdin.write(req.source);
+    child.stdin.write(Buffer.from(req.source, "utf-8"));
     child.stdin.end();
   });
 }

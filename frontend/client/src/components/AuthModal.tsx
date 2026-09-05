@@ -42,10 +42,11 @@ export default function AuthModal({
   const [, setLocation] = useLocation();
   const [mode, setMode] = useState<"signup" | "login">(initialMode);
   const [email, setEmail] = useState("");
-  const [usernameInput, setUsernameInput] = useState("OmkarKudalkar23");
+  const [usernameInput, setUsernameInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
   const [isGithubConnected, setIsGithubConnected] = useState(false);
   const [isConnectingGithub, setIsConnectingGithub] = useState(false);
-  
+
   const [githubUser, setGithubUser] = useState<GitHubUser | null>(null);
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
@@ -55,21 +56,35 @@ export default function AuthModal({
   useEffect(() => {
     const savedUser = localStorage.getItem("connected_github_user");
     if (savedUser) {
+      setUsernameInput(savedUser);
       loadGitHubData(savedUser, false);
     }
   }, []);
+
+  const handleLoginSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanUser = usernameInput.trim().replace(/^@/, "");
+    if (!cleanUser) {
+      toast.error("Please enter your GitHub Username to log in.");
+      return;
+    }
+    if (passwordInput.trim()) {
+      localStorage.setItem("github_token", passwordInput.trim());
+    }
+    await loadGitHubData(cleanUser, true);
+  };
 
   const loadGitHubData = async (userToFetch: string, autoRedirect = true) => {
     setIsConnectingGithub(true);
     const userInfo = await fetchGitHubUser(userToFetch);
     const userRepos = await fetchUserRepos(userToFetch);
 
-    if (userInfo && userRepos.length > 0) {
+    if (userInfo) {
       setGithubUser(userInfo);
       setRepos(userRepos);
       setIsGithubConnected(true);
       localStorage.setItem("connected_github_user", userToFetch);
-      
+
       // Load commits for first repo by default
       if (userRepos[0]) {
         setSelectedRepo(userRepos[0].name);
@@ -88,7 +103,7 @@ export default function AuthModal({
         toast.success(`GitHub account synced: @${userToFetch}`);
       }
     } else {
-      toast.error(`Could not fetch GitHub data for @${userToFetch}`);
+      toast.error(`Could not fetch GitHub data for @${userToFetch}. Please verify your username and password/token.`);
     }
     setIsConnectingGithub(false);
   };
@@ -153,69 +168,83 @@ export default function AuthModal({
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-xl bg-[#0d0e12] border border-[#232734] rounded-3xl p-6 md:p-8 shadow-2xl z-10 overflow-hidden text-white max-h-[90vh] flex flex-col"
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="relative w-full max-w-lg bg-[#0d0f14] border border-white/[0.08] rounded-xl p-5 md:p-6 shadow-2xl z-10 overflow-hidden text-white max-h-[90vh] flex flex-col font-sans"
           >
-            {/* Ambient Background Glow */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
-
             {/* Header & Close Button */}
-            <div className="flex items-center justify-between mb-5 flex-shrink-0">
-              <div className="flex items-center space-x-2 bg-white/5 border border-white/10 px-3 py-1 rounded-full text-xs font-mono text-zinc-300">
-                <Sparkles className="w-3 h-3 text-purple-400" />
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+              <div className="flex items-center space-x-2 bg-indigo-500/10 border border-indigo-500/25 px-2.5 py-1 rounded-md text-[10px] font-mono text-indigo-300">
+                <Sparkles className="w-3 h-3 text-indigo-400" />
                 <span>GITHUB AUTHENTICATION</span>
               </div>
 
               <button
                 onClick={onClose}
-                className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+                className="p-1 rounded-md bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Scrollable Container */}
-            <div className="overflow-y-auto pr-1 space-y-5 flex-1 custom-scrollbar">
+            <div className="overflow-y-auto pr-1 space-y-4 flex-1 custom-scrollbar">
               {/* Modal Title */}
               <div>
-                <h3 className="text-2xl font-bold tracking-tight text-white mb-1 font-poppins">
-                  {mode === "signup" ? "Connect GitHub Account" : "Sign In to Linear"}
+                <h3 className="text-xl font-bold tracking-tight text-white mb-1">
+                  {mode === "signup" ? "Connect GitHub Account" : "Sign In to CodeGate"}
                 </h3>
                 <p className="text-xs text-zinc-400">
                   Sync your GitHub repositories, commits, and PRs automatically into your dashboard.
                 </p>
               </div>
 
-              {/* GitHub OAuth Connection Panel */}
+              {/* GitHub Connection Panel */}
               {!isGithubConnected ? (
-                <div className="space-y-3 bg-[#13151c] border border-[#242938] rounded-2xl p-4">
-                  <div className="flex items-center space-x-2">
+                <form onSubmit={handleLoginSubmit} className="space-y-3 bg-[#13161f] border border-white/[0.08] rounded-md p-4">
+                  <div>
+                    <label className="block text-[11px] font-mono text-zinc-400 mb-1">
+                      GitHub Username <span className="text-red-400">*</span>
+                    </label>
                     <input
                       type="text"
                       value={usernameInput}
                       onChange={(e) => setUsernameInput(e.target.value)}
-                      placeholder="GitHub Username (e.g. OmkarKudalkar23)"
-                      className="flex-1 bg-[#1a1d26] border border-[#2c3244] focus:border-purple-500 text-white placeholder-zinc-500 px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none"
+                      placeholder="Enter GitHub Username (e.g. octocat)"
+                      className="w-full bg-[#0d0f14] border border-white/[0.08] focus:border-indigo-500 text-white placeholder-zinc-500 px-3 py-2 rounded-md text-xs font-mono outline-none transition-colors"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-zinc-400 mb-1">
+                      Password or Personal Access Token (PAT)
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value)}
+                      placeholder="Enter Password or GitHub PAT Token (optional for public)"
+                      className="w-full bg-[#0d0f14] border border-white/[0.08] focus:border-indigo-500 text-white placeholder-zinc-500 px-3 py-2 rounded-md text-xs font-mono outline-none transition-colors"
                     />
                   </div>
 
                   <button
-                    onClick={() => loadGitHubData(usernameInput || "OmkarKudalkar23", true)}
+                    type="submit"
                     disabled={isConnectingGithub}
-                    className="w-full flex items-center justify-center space-x-3 bg-[#24292e] hover:bg-[#2f363d] text-white py-3.5 px-4 rounded-xl font-medium text-sm border border-white/15 shadow-xl transition-all group disabled:opacity-60 cursor-pointer"
+                    className="w-full flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 px-4 rounded-md font-medium text-xs shadow-sm transition-all group disabled:opacity-60 cursor-pointer mt-2"
                   >
                     {isConnectingGithub ? (
-                      <RefreshCw className="w-4 h-4 animate-spin text-zinc-300" />
+                      <RefreshCw className="w-4 h-4 animate-spin text-white" />
                     ) : (
-                      <Github className="w-4 h-4 text-white group-hover:scale-110 transition-transform" />
+                      <Github className="w-4 h-4 text-white group-hover:scale-105 transition-transform" />
                     )}
                     <span>
                       {isConnectingGithub
-                        ? "Fetching GitHub Repositories & API Data..."
-                        : `Authorize GitHub & Open Dashboard (@${usernameInput || "OmkarKudalkar23"})`}
+                        ? "Connecting & Fetching GitHub Repositories..."
+                        : `Authorize GitHub & Open Dashboard ${usernameInput ? `(@${usernameInput})` : ""}`}
                     </span>
                   </button>
-                </div>
+                </form>
               ) : (
                 /* Connected State with Real Repos & Commits & Go To Dashboard Button */
                 <div className="space-y-4">

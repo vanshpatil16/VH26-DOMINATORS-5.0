@@ -86,6 +86,17 @@ def ast_to_json(tree: ast.AST, *, max_depth: int = _AST_MAX_DEPTH,
     return conv(tree, 0)
 
 
+def _safe_json(obj):
+    """Convert non-JSON-serializable types to strings."""
+    if isinstance(obj, bytes):
+        return repr(obj)
+    if isinstance(obj, dict):
+        return {k: _safe_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_safe_json(v) for v in obj]
+    return obj
+
+
 def _block_json(block) -> dict[str, Any]:
     stmts = [_short(_stmt_src(s).splitlines()[0], 80) for s in block.statements]
     linenos = [s.lineno for s in block.statements if hasattr(s, "lineno")]
@@ -96,7 +107,7 @@ def _block_json(block) -> dict[str, Any]:
         "lineEnd": max(linenos) if linenos else None,
         "isEntry": False,  # set by caller
         "isExit": len(block.exits) == 0,
-        "funcCalls": list(getattr(block, "func_calls", []) or []),
+        "funcCalls": [_safe_json(fc) for fc in (getattr(block, "func_calls", []) or [])],
     }
 
 

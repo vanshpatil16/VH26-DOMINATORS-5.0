@@ -4,11 +4,16 @@ Version: 0.1.0
 Summary: CodeGate: Static resource-leak analyzer for Python (Scalpel CFG + LibCST fix)
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: libcst>=1.0
 Requires-Dist: networkx
 Requires-Dist: astor
 Requires-Dist: astunparse
 Requires-Dist: graphviz
+Provides-Extra: ensemble
+Requires-Dist: semgrep>=1.60; extra == "ensemble"
+Requires-Dist: ruff>=0.4; extra == "ensemble"
+Dynamic: license-file
 
 # CodeGate — Static Resource-Leak Analyzer for Python
 
@@ -92,3 +97,35 @@ with open(path) as f:
 python -m pytest tests -q
 python tests/test_analyzer.py
 ```
+
+---
+
+## 🚀 Reusable GitHub Action (Use in ANY Repository)
+
+You can use LeakGuard in **any Python repository on GitHub** by adding `.github/workflows/leakguard.yml` to their project:
+
+```yaml
+name: LeakGuard Security Scan
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  leakguard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run LeakGuard Scan
+        uses: vanshpatil16/VH26-DOMINATORS-5.0@ci-cd
+```
+
+### Action Inputs
+| Input | Description | Default |
+| :--- | :--- | :--- |
+| `targets` | Files or directories to scan | `.` |
+| `ensemble` | Include ruff + CodeGate ensemble verification | `true` |
+| `changed-only` | Scan only changed files against base ref | `false` |
+

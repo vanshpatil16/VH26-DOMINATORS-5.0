@@ -87,6 +87,59 @@ export interface EnsembleResult {
   noiseReductionPct: number;
 }
 
+export interface KnowledgeBaseRule {
+  call: string;
+  type: string;
+  close: string[];
+  weight?: number;
+}
+
+export interface KnowledgeBaseMatched {
+  var: string;
+  acquire: string;
+  release: string;
+  line: number;
+  resource_type: string;
+  exception_safety: string;
+  ownership: string;
+  confidence: number;
+  behavior: string;
+  discovered_by?: string;
+  evidence?: string;
+  reason?: string;
+  source?: string;
+}
+
+/** Full LLM-resolved contract for a previously-unknown library API. */
+export interface KnowledgeBaseContract {
+  library: string;
+  function: string;
+  call: string;
+  resource_type: string;
+  behavior: string;
+  ownership: string;
+  exception_safety: string;
+  confidence: number;
+  evidence: string;
+  reason: string;
+  source: string;
+  version?: string;
+  discovered_by: string;
+}
+
+export interface KnowledgeBaseInfo {
+  rulesCount: number;
+  contractsCount: number;
+  rules: KnowledgeBaseRule[];
+  matched: KnowledgeBaseMatched[];
+  /** Contracts newly resolved via LLM during this scan. */
+  llmDiscovered: KnowledgeBaseContract[];
+  llmAvailable: boolean;
+  llmProvider?: string;
+  llmModel?: string;
+  error?: string;
+}
+
 export interface CodegateResult {
   ok: boolean;
   error?: string;
@@ -106,6 +159,7 @@ export interface CodegateResult {
   cfg: { functions: CfgFunction[] };
   fix?: { applied: boolean; code?: string; diff?: string; reason?: string };
   ensemble?: EnsembleResult | null;
+  knowledgeBase?: KnowledgeBaseInfo | null;
 }
 
 export async function runCodegateAnalysis(
@@ -147,6 +201,24 @@ export const DEMOS: { name: string; filename: string; code: string }[] = [
 
     f.close()
     return data`,
+  },
+  {
+    name: "SQLite DB leak",
+    filename: "db_query.py",
+    code: `import sqlite3
+
+def fetch_users(db_path):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM users")
+    rows = cursor.fetchall()
+
+    if not rows:
+        return []   # LEAK: conn never closed on early exit
+
+    conn.close()
+    return rows`,
   },
   {
     name: "Exception leak",

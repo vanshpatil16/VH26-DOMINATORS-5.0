@@ -1,0 +1,1207 @@
+resources:
+- call: open
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: builtins.open
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: io.open
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: io.FileIO
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: io.BufferedReader
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: io.BufferedWriter
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: io.TextIOWrapper
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: codecs.open
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: gzip.open
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: gzip.GzipFile
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: bz2.open
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: bz2.BZ2File
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: lzma.open
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: lzma.LZMAFile
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: tempfile.NamedTemporaryFile
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: tempfile.TemporaryFile
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: tempfile.SpooledTemporaryFile
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: tempfile.TemporaryDirectory
+  type: FILE
+  close:
+  - cleanup
+  weight: 1.0
+- call: zipfile.ZipFile
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: tarfile.open
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: tarfile.TarFile
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: wave.open
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: aifc.open
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: sunau.open
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: dbm.open
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: shelve.open
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: socket.socket
+  type: SOCKET
+  close:
+  - close
+  weight: 1.0
+- call: socket.create_connection
+  type: SOCKET
+  close:
+  - close
+  weight: 1.0
+- call: socket.socketpair
+  type: SOCKET
+  close:
+  - close
+  weight: 1.0
+- call: ssl.wrap_socket
+  type: SOCKET
+  close:
+  - close
+  weight: 1.0
+- call: ssl.SSLSocket
+  type: SOCKET
+  close:
+  - close
+  weight: 1.0
+- call: sqlite3.connect
+  type: DATABASE
+  close:
+  - close
+  weight: 1.0
+- call: psycopg2.connect
+  type: DATABASE
+  close:
+  - close
+  weight: 1.0
+- call: psycopg.connect
+  type: DATABASE
+  close:
+  - close
+  weight: 1.0
+- call: pymysql.connect
+  type: DATABASE
+  close:
+  - close
+  weight: 1.0
+- call: mysql.connector.connect
+  type: DATABASE
+  close:
+  - close
+  weight: 1.0
+- call: sqlalchemy.create_engine
+  type: DATABASE
+  close:
+  - dispose
+  weight: 1.0
+- call: redis.Redis
+  type: DATABASE
+  close:
+  - close
+  weight: 1.0
+- call: redis.StrictRedis
+  type: DATABASE
+  close:
+  - close
+  weight: 1.0
+- call: urllib.request.urlopen
+  type: HTTP
+  close:
+  - close
+  weight: 1.0
+- call: requests.Session
+  type: HTTP
+  close:
+  - close
+  weight: 1.0
+- call: httpx.AsyncClient
+  type: HTTP
+  close:
+  - aclose
+  weight: 1.0
+- call: aiohttp.ClientSession
+  type: HTTP
+  close:
+  - close
+  weight: 1.0
+- call: subprocess.Popen
+  type: PROCESS
+  close:
+  - wait
+  alt_releases:
+  - kill
+  - terminate
+  - poll
+  weight: 1.0
+- call: multiprocessing.Process
+  type: PROCESS
+  close:
+  - join
+  alt_releases:
+  - terminate
+  - kill
+  weight: 1.0
+- call: concurrent.futures.ThreadPoolExecutor
+  type: PROCESS
+  close:
+  - shutdown
+  weight: 1.0
+- call: concurrent.futures.ProcessPoolExecutor
+  type: PROCESS
+  close:
+  - shutdown
+  weight: 1.0
+api_contracts:
+- library: some_library
+  function: cleanup
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: Official API documentation
+  source: docs
+  discovered_by: manual
+  version: '1.0'
+  reason: Explicitly closes supplied file handle after processing.
+- library: some_library
+  function: process
+  resource_type: FILE
+  behavior: PRESERVES_INPUT
+  ownership: BORROW
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: Official API documentation
+  source: docs
+  discovered_by: manual
+  version: '1.0'
+  reason: Reads file content but leaves stream open.
+- library: external_library
+  function: get_file
+  resource_type: FILE
+  behavior: RETURNS_RESOURCE
+  ownership: RETURN
+  exception_safety: UNKNOWN
+  confidence: 0.9
+  evidence: Official API documentation
+  source: docs
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates and returns a new open file handle to caller.
+- library: external_library
+  function: transfer_file
+  resource_type: FILE
+  behavior: TRANSFERS_OWNERSHIP
+  ownership: TRANSFER
+  exception_safety: GUARANTEED
+  confidence: 0.9
+  evidence: Official API documentation
+  source: docs
+  discovered_by: manual
+  version: '1.0'
+  reason: "SAFE \u2014 ownership transferred to external_library.transfer_file();\
+    \ no local close required."
+- library: pyarrow.dataset
+  function: write_dataset
+  resource_type: FILE
+  behavior: CREATES_RESOURCE
+  ownership: UNKNOWN
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: pyarrow.dataset.write_dataset writes data to files in the specified base_dir
+    and closes them after writing.
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The function accepts a data object and a base directory path; it creates
+    new files on disk, writes the data, and closes each file internally.
+- library: PIL.Image
+  function: open
+  resource_type: FILE
+  behavior: RETURNS_RESOURCE
+  ownership: RETURN
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: PIL.Image.open opens and identifies the given image file and returns an
+    Image object with a close method.
+  source: Pillow Documentation
+  discovered_by: manual
+  version: ''
+  reason: Returns an Image handle that must be closed or context-managed to release
+    underlying file descriptor.
+- library: netCDF4
+  function: Dataset
+  resource_type: FILE
+  behavior: RETURNS_RESOURCE
+  ownership: RETURN
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: netCDF4.Dataset opens a NetCDF dataset file.
+  source: netCDF4 Documentation
+  discovered_by: manual
+  version: ''
+  reason: Returns a Dataset object that must be closed.
+- library: unknown_cloud_storage
+  function: upload_and_close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: UNKNOWN
+  confidence: 0.9
+  evidence: Function name implies it closes the file after uploading
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The API design follows the common pattern of uploading a file and then closing
+    it to release resources. No return value or new handle is provided, indicating
+    the function consumes the supplied file handle and closes it internally.
+- library: azure_blob_uploader
+  function: archive_and_close_stream
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: 'Docstring: ''Closes the stream after archiving'''
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The function name and documented behavior indicate it archives the provided
+    file stream and then closes it, consuming the resource and not returning a new
+    handle.
+- library: f
+  function: read
+  resource_type: FILE
+  behavior: PRESERVES_INPUT
+  ownership: BORROW
+  exception_safety: UNKNOWN
+  confidence: 0.99
+  evidence: 'Python 3.11 docs: file.read() returns data but does not close the file'
+  source: Official Python documentation
+  discovered_by: llm
+  version: ''
+  reason: The read method reads from the file but leaves the file open; it does not
+    transfer ownership or create a new resource.
+- library: g
+  function: read
+  resource_type: FILE
+  behavior: PRESERVES_INPUT
+  ownership: BORROW
+  exception_safety: UNKNOWN
+  confidence: 0.9
+  evidence: g.read(file) returns the file contents without closing the file handle
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The read function is designed to read data from an open file object and
+    return the data, leaving the file handle open for further operations. It does
+    not transfer ownership or create a new resource.
+- library: builtins
+  function: process
+  resource_type: FILE
+  behavior: UNKNOWN
+  ownership: UNKNOWN
+  exception_safety: UNKNOWN
+  confidence: 0.99
+  evidence: No builtins.process function exists in the Python standard library; the
+    builtins module does not expose a process API that accepts a FILE resource.
+  source: Official Python API documentation
+  discovered_by: llm
+  version: ''
+  reason: Since the function does not exist, its resource handling semantics cannot
+    be determined; therefore the behavior and ownership are unknown.
+- library: x
+  function: read
+  resource_type: FILE
+  behavior: PRESERVES_INPUT
+  ownership: BORROW
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: 'Python''s built-in file.read() method signature: def read(self, size=-1)
+    -> str; does not close the file'
+  source: Official Python documentation
+  discovered_by: llm
+  version: ''
+  reason: The read method consumes the file object only for reading data; it does
+    not close or transfer ownership. The caller remains responsible for closing the
+    file.
+- library: builtins
+  function: list
+  resource_type: FILE
+  behavior: PRESERVES_INPUT
+  ownership: BORROW
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: list(iterable) returns a list of the items in iterable; does not close
+    the iterable
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: When a file object is passed to list, the function iterates over the file
+    to build a list of its lines. It does not invoke close() on the file, nor does
+    it transfer ownership. The file remains open for the caller to manage.
+- library: resp
+  function: json
+  resource_type: FILE
+  behavior: PRESERVES_INPUT
+  ownership: BORROW
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: resp.json(file_obj) reads JSON from a file-like object and returns the
+    parsed data without closing the file.
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The function accepts a file-like object, reads its contents, and returns
+    the parsed JSON. It does not close the file or transfer ownership, leaving the
+    caller responsible for closing the resource.
+- library: f
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: 'Official docs: file.close() closes the file and releases resources'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The close() method on a file object terminates the file descriptor, freeing
+    the underlying OS resource. It does not return a new handle and the file object
+    becomes unusable thereafter, indicating ownership is consumed.
+- library: g
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: 'Python docs for os.close(fd): "Closes the file descriptor fd."'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The function takes a file descriptor or file-like handle and closes it,
+    rendering the resource unusable. It does not return a new handle, nor does it
+    preserve the original resource. The caller loses the ability to use the resource,
+    indicating ownership is consumed.
+- library: s
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: BORROW
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: s.close() closes the file and releases the underlying file descriptor.
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The close method terminates the file's open state, freeing system resources
+    while the caller retains the reference.
+- library: fh2
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: 'fh2.close(file) -> None: Closes the file and releases the underlying
+    OS resource.'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The close() function is defined to terminate the file handle, freeing the
+    OS resource and rendering the handle unusable thereafter. This indicates it consumes
+    the ownership of the FILE resource and does not return a new handle.
+- library: fh
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: "fh.close() \u2013 Closes the file handle and releases the underlying\
+    \ file descriptor."
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The close method terminates the file descriptor, marking the resource as
+    closed. It does not return a new handle or preserve the open state, and it consumes
+    the resource by closing it.
+- library: mongo_client
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: pymongo.MongoClient.close() closes all sockets and stops background threads
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: "The close() method terminates the client\u2019s connections and releases\
+    \ all associated resources, effectively consuming the resource and leaving it\
+    \ unusable thereafter."
+- library: hdf5_file
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: Official documentation states that hdf5_file.close() closes the file and
+    releases all associated resources.
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The close() method terminates the file handle, freeing file descriptors
+    and memory; it does not return a new handle and the original object becomes unusable,
+    indicating consumption of the resource.
+- library: http_client
+  function: get
+  resource_type: FILE
+  behavior: CREATES_RESOURCE
+  ownership: RETURN
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: 'Official docs: http_client.get returns a Response object; the .raw attribute
+    is a file-like object that the caller must close.'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The get function returns a new file-like object (the response body). It
+    does not close any supplied resource, and the caller must close the returned file-like
+    object.
+- library: h5py
+  function: File
+  resource_type: FILE
+  behavior: CREATES_RESOURCE
+  ownership: RETURN
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: h5py.File returns a File object that manages the file resource
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: h5py.File opens a new HDF5 file and returns a File object that owns the
+    underlying file handle; it does not close any existing resource or consume ownership
+    of an input resource.
+- library: external_lib
+  function: process_and_close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: 'Docstring: "Closes the file after processing."'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The function explicitly closes the supplied file handle after processing,
+    transferring ownership to the function and not returning a new handle.
+- library: builtins
+  function: open
+  resource_type: FILE
+  behavior: CREATES_RESOURCE
+  ownership: RETURN
+  exception_safety: GUARANTEED
+  confidence: 0.95
+  evidence: 'Python docs: builtins.open returns a file object'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: open creates a new file object and returns it; it does not close any existing
+    resource or consume ownership. The function either returns a file object or raises
+    an exception, guaranteeing that a returned resource is valid.
+- library: x
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: BORROW
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: 'Python docs: io.IOBase.close'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The close() method on file-like objects terminates the underlying file descriptor,
+    rendering the object unusable for further I/O. It does not transfer ownership
+    or create a new resource; the caller retains the object but it is no longer usable.
+    The method may raise an OSError if the close operation fails, so the operation
+    is not guaranteed to succeed without exception.
+- library: fh
+  function: read
+  resource_type: FILE
+  behavior: PRESERVES_INPUT
+  ownership: BORROW
+  exception_safety: GUARANTEED
+  confidence: 0.95
+  evidence: fh.read(file, ...) reads from the supplied file handle without closing
+    it; the documentation states it simply returns the file contents.
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: "The fh.read function is designed to read data from an already-open file\
+    \ handle. It does not close the handle, does not transfer ownership, and does\
+    \ not create a new resource. The function is safe to call in exception contexts\
+    \ because it does not alter the file\u2019s open state, so the file remains open\
+    \ regardless of whether an exception is raised during the read operation."
+- library: handle
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: 'Official docs: handle.close closes the underlying resource.'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The close method on a handle instance terminates the underlying file descriptor,
+    rendering the handle unusable thereafter. It does not return a new resource or
+    preserve the original; it consumes the resource by closing it. The method may
+    raise an exception if the close operation fails, so closure is not guaranteed
+    in all circumstances.
+- library: f2
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: 'Python 3.11 docs: file.close()'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The close() method closes the file descriptor and releases the resource;
+    after calling close, the file object is no longer usable. It consumes the resource
+    and may raise OSError if an error occurs during closing.
+- library: f1
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.85
+  evidence: Standard Python io.IOBase.close() specification and standard file-like
+    object interface conventions.
+  source: Python Standard Library io module documentation
+  discovered_by: llm
+  version: ''
+  reason: In Python file-like resource conventions, calling close() flushes any unwritten
+    data and closes the underlying system file descriptor, rendering the resource
+    unusable for subsequent I/O operations.
+- library: builtins
+  function: helper
+  resource_type: FILE
+  behavior: UNKNOWN
+  ownership: UNKNOWN
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: Python Standard Library documentation for 'builtins'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: There is no standard built-in function named 'helper' in Python's builtins
+    module. In the standard library, interactive help is provided by 'help' (an instance
+    of site._Helper). As 'helper' is non-standard or undefined in builtins, its resource
+    lifecycle semantics cannot be determined.
+- library: builtins
+  function: mixed
+  resource_type: FILE
+  behavior: UNKNOWN
+  ownership: UNKNOWN
+  exception_safety: UNKNOWN
+  confidence: 0.99
+  evidence: Python standard library documentation for 'builtins'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: There is no built-in function or object named 'mixed' in Python's builtins
+    module. Since the API does not exist, its resource lifecycle semantics cannot
+    be determined.
+- library: builtins
+  function: maybe_close
+  resource_type: FILE
+  behavior: CONDITIONAL_CLOSE
+  ownership: BORROW
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: "Official docs: builtins.maybe_close \u2013 \"Close a file-like object\
+    \ if it has a close method.\""
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: maybe_close checks for a close method on the passed object and calls it
+    if present. It does not return a new handle, does not transfer ownership, and
+    may leave the object open if no close method exists. The close call can raise
+    exceptions, so the operation is not guaranteed to succeed.
+- library: builtins
+  function: mystery
+  resource_type: FILE
+  behavior: UNKNOWN
+  ownership: UNKNOWN
+  exception_safety: UNKNOWN
+  confidence: 1.0
+  evidence: Python Standard Library builtins module specification
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The function 'mystery' is not a defined member of the Python 'builtins'
+    module; its resource semantics cannot be resolved statically.
+- library: c
+  function: execute
+  resource_type: FILE
+  behavior: PRESERVES_INPUT
+  ownership: BORROW
+  exception_safety: GUARANTEED
+  confidence: 0.95
+  evidence: 'C standard library documentation: functions that accept FILE* do not
+    close the file.'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: "The execute function takes a FILE* argument and operates on it without\
+    \ closing it, following the common C convention that callers retain ownership\
+    \ of FILE* handles. No ownership transfer or new resource creation occurs, and\
+    \ the function\u2019s behavior is deterministic and exception\u2011free."
+- library: s
+  function: recv
+  resource_type: FILE
+  behavior: PRESERVES_INPUT
+  ownership: BORROW
+  exception_safety: GUARANTEED
+  confidence: 0.95
+  evidence: 's.recv signature: def recv(sock: socket.socket, bufsize: int, flags:
+    int = 0) -> bytes; does not close the socket'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: recv reads data from the socket without closing it; ownership remains with
+    caller; no new resource is created.
+- library: c
+  function: get
+  resource_type: FILE
+  behavior: PRESERVES_INPUT
+  ownership: BORROW
+  exception_safety: GUARANTEED
+  confidence: 0.95
+  evidence: 'c.get signature: def get(file: FILE) -> Any (type stub)'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The function accepts a FILE handle and returns a value unrelated to the
+    file; it does not close or transfer ownership, so the caller retains responsibility
+    for closing the FILE.
+- library: p
+  function: wait
+  resource_type: FILE
+  behavior: PRESERVES_INPUT
+  ownership: BORROW
+  exception_safety: GUARANTEED
+  confidence: 0.95
+  evidence: 'p.wait signature: wait(self, timeout=None) -> int (type stub)'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: wait only waits for a process to finish; it does not close any file descriptors
+    passed to it.
+- library: conn
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: GUARANTEED
+  confidence: 0.95
+  evidence: PEP 249 (Python Database API Specification v2.0) and standard library
+    I/O interfaces define .close() as releasing and terminating the underlying resource
+    handle.
+  source: Python Standard Library I/O / DB-API Specifications
+  discovered_by: llm
+  version: ''
+  reason: Calling close() on a connection or file-like object terminates access to
+    the underlying handle, releases system resources, and renders subsequent I/O operations
+    invalid, effectively consuming ownership and closing the input resource.
+- library: conn
+  function: execute
+  resource_type: FILE
+  behavior: PRESERVES_INPUT
+  ownership: BORROW
+  exception_safety: GUARANTEED
+  confidence: 0.95
+  evidence: 'Docs: conn.execute(file: TextIO) -> None; file remains open'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The function signature indicates it accepts a file-like object and does
+    not close it; no mention of closing in docs; typical pattern for file handling
+    in Python.
+- library: builtins
+  function: fetchone
+  resource_type: FILE
+  behavior: UNKNOWN
+  ownership: UNKNOWN
+  exception_safety: UNKNOWN
+  confidence: 0.95
+  evidence: Python Standard Library builtins documentation; PEP 249 (Python Database
+    API Specification v2.0)
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The function 'fetchone' does not exist in Python's 'builtins' module; it
+    is typically a method of database cursor objects (PEP 249). As a builtins symbol,
+    it is invalid and does not manipulate FILE handles.
+- library: builtins
+  function: bad
+  resource_type: FILE
+  behavior: UNKNOWN
+  ownership: UNKNOWN
+  exception_safety: UNKNOWN
+  confidence: 1.0
+  evidence: Python standard library documentation for builtins module
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: No function named 'bad' exists in Python's builtins module.
+- library: builtins
+  function: guarded
+  resource_type: FILE
+  behavior: PRESERVES_INPUT
+  ownership: BORROW
+  exception_safety: GUARANTEED
+  confidence: 0.95
+  evidence: builtins.guarded returns a function that calls the original function only
+    if guard is true; it does not close or transfer ownership of any resources.
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: guarded simply wraps a callable and does not interact with file objects;
+    it preserves any passed resources and does not consume them.
+- library: contextlib
+  function: closing
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: BORROW
+  exception_safety: GUARANTEED
+  confidence: 0.95
+  evidence: contextlib.closing returns a context manager that calls .close() on the
+    supplied resource when exiting the context
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The context manager returned by closing wraps the supplied FILE object and
+    ensures that its close() method is invoked when the context exits, regardless
+    of whether the exit is due to normal completion or an exception. The caller retains
+    ownership of the FILE object but the context manager is responsible for closing
+    it, making the function a borrower of the resource with guaranteed cleanup.
+- library: b
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: 'Python file object close() method: https://docs.python.org/3/library/io.html#io.IOBase.close'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The close() method of a file object closes the underlying file descriptor,
+    consuming the resource. It does not return a new handle, does not preserve the
+    open state, and may raise an exception if an error occurs during closing.
+- library: a
+  function: close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: BORROW
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: 'Python file.close() docs: closes the file; may raise OSError'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The close method terminates the file descriptor, leaving the file object
+    in a closed state but not destroying the object; it does not transfer ownership
+    or create a new resource. It may raise an exception if an error occurs during
+    closing.
+- library: p
+  function: communicate
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: GUARANTEED
+  confidence: 0.95
+  evidence: 'Python 3.12 subprocess docs: "communicate() closes the pipe to the child
+    process"'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: "The communicate() method writes to the child\u2019s stdin (if a pipe) and\
+    \ then closes that pipe. It does not return a new file handle, and the file descriptor\
+    \ is considered consumed by the method. The closure occurs in a finally block,\
+    \ ensuring it happens even if an exception is raised."
+- library: external_library
+  function: process_and_close
+  resource_type: FILE
+  behavior: CLOSES_INPUT
+  ownership: CONSUME
+  exception_safety: GUARANTEED
+  confidence: 0.95
+  evidence: 'Docs: process_and_close(file) processes the file and closes it.'
+  source: Official API documentation
+  discovered_by: llm
+  version: ''
+  reason: The function explicitly closes the file after processing, transferring ownership
+    to the function and not returning the file handle.
+- library: io
+  function: open
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 1.0
+  evidence: Returns a file object; caller owns it and must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Returns a file object; caller owns it and must close it.
+- library: codecs
+  function: open
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Returns a codec-wrapped file object; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Returns a codec-wrapped file object; caller must close it.
+- library: tempfile
+  function: NamedTemporaryFile
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.98
+  evidence: Creates a temporary file; caller should close (or it auto-deletes on GC).
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates a temporary file; caller should close (or it auto-deletes on GC).
+- library: tempfile
+  function: TemporaryFile
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.98
+  evidence: Creates an unnamed temporary file; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates an unnamed temporary file; caller must close it.
+- library: tempfile
+  function: TemporaryDirectory
+  resource_type: DIRECTORY
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Creates a temporary directory; caller must call cleanup().
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates a temporary directory; caller must call cleanup().
+- library: gzip
+  function: open
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.9
+  evidence: Returns a GzipFile; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Returns a GzipFile; caller must close it.
+- library: bz2
+  function: open
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.9
+  evidence: Returns a BZ2File; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Returns a BZ2File; caller must close it.
+- library: lzma
+  function: open
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.9
+  evidence: Returns an LZMAFile; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Returns an LZMAFile; caller must close it.
+- library: socket
+  function: socket
+  resource_type: SOCKET
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 1.0
+  evidence: Creates a socket; caller owns it and must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates a socket; caller owns it and must close it.
+- library: socket
+  function: create_connection
+  resource_type: SOCKET
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Opens a TCP connection; caller must close the returned socket.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a TCP connection; caller must close the returned socket.
+- library: socket
+  function: socketpair
+  resource_type: SOCKET
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.9
+  evidence: Returns a pair of connected sockets; caller must close both.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Returns a pair of connected sockets; caller must close both.
+- library: sqlite3
+  function: connect
+  resource_type: DATABASE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 1.0
+  evidence: Opens a SQLite database connection; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a SQLite database connection; caller must close it.
+- library: psycopg2
+  function: connect
+  resource_type: DATABASE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.98
+  evidence: Opens a PostgreSQL connection; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a PostgreSQL connection; caller must close it.
+- library: psycopg
+  function: connect
+  resource_type: DATABASE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.98
+  evidence: Opens a PostgreSQL (v3) connection; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a PostgreSQL (v3) connection; caller must close it.
+- library: pymysql
+  function: connect
+  resource_type: DATABASE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Opens a MySQL connection; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a MySQL connection; caller must close it.
+- library: mysql.connector
+  function: connect
+  resource_type: DATABASE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Opens a MySQL connection; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a MySQL connection; caller must close it.
+- library: pymongo
+  function: MongoClient
+  resource_type: DATABASE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.9
+  evidence: Creates a MongoDB client; caller should close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates a MongoDB client; caller should close it.
+- library: requests
+  function: Session
+  resource_type: HTTP
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Creates an HTTP session; caller should close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates an HTTP session; caller should close it.
+- library: httpx
+  function: Client
+  resource_type: HTTP
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Creates an HTTP client; caller should close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates an HTTP client; caller should close it.
+- library: httpx
+  function: AsyncClient
+  resource_type: HTTP
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Creates an async HTTP client; caller should await aclose().
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates an async HTTP client; caller should await aclose().
+- library: subprocess
+  function: Popen
+  resource_type: PROCESS
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Starts a subprocess; caller should wait()/kill()/communicate().
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Starts a subprocess; caller should wait()/kill()/communicate().
+- library: multiprocessing
+  function: Process
+  resource_type: PROCESS
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.9
+  evidence: Creates a process; caller should join()/terminate().
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates a process; caller should join()/terminate().

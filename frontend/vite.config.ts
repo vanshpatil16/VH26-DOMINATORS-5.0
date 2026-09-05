@@ -6,6 +6,7 @@ import path from "node:path";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
 import { handleCodegateAnalyze } from "./server/codegate-api";
+import { handleAdminApi } from "./server/admin-api";
 
 // =============================================================================
 // Manus Debug Collector - Vite Plugin
@@ -225,7 +226,22 @@ function vitePluginCodegateApi(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), vitePluginStorageProxy(), vitePluginCodegateApi()];
+/**
+ * LeakGuard admin API — dev middleware. Serves /api/admin/* out of MongoDB
+ * (frontend/.env → MONGODB_URI); express does the same in production.
+ */
+function vitePluginAdminApi(): Plugin {
+  return {
+    name: "leakguard-admin-api",
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use("/api/admin", (req, res) => {
+        void handleAdminApi(req, res, req.url || "/");
+      });
+    },
+  };
+}
+
+const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), vitePluginStorageProxy(), vitePluginCodegateApi(), vitePluginAdminApi()];
 
 export default defineConfig({
   plugins,

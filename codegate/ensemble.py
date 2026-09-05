@@ -71,9 +71,11 @@ def _semgrep_binary() -> str | None:
     if b:
         return b
     try:
-        subprocess.run([sys.executable, "-m", "semgrep", "--version"],
-                       capture_output=True, timeout=30)
-        return sys.executable + " -m semgrep"
+        proc = subprocess.run([sys.executable, "-m", "semgrep", "--version"],
+                              capture_output=True, timeout=30)
+        if proc.returncode == 0:
+            return sys.executable + " -m semgrep"
+        return None
     except Exception:
         return None
 
@@ -285,7 +287,7 @@ def syntactic_prefilter(source: str, config: CodeGateConfig | None = None) -> li
             continue
         findings.append({
             "tool": "codegate-syntactic",
-            "rule": f"CG{len(findings) + 1:03d}-unguarded-{canonical.replace('.', '-')}",
+            "rule": f"codegate-unguarded-{canonical.split('.')[-1]}",
             "line": node.lineno,
             "col": getattr(node, "col_offset", 0) + 1,
             "message": f"'{var}' = {canonical}(...) acquired without a context manager",

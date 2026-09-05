@@ -80,3 +80,44 @@ with open(path) as f:
 python -m pytest tests -q
 python tests/test_analyzer.py
 ```
+
+---
+
+## 🚀 Ready-to-Use GitHub Action Workflow
+
+To use LeakGuard in **any Python repository on GitHub**, create `.github/workflows/leakguard.yml` and copy-paste the full workflow below:
+
+```yaml
+name: LeakGuard Security Audit
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  leakguard-scan:
+    name: CodeGate Resource Leak Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: LeakGuard CodeGate Analyzer
+        uses: vanshpatil16/VH26-DOMINATORS-5.0@v1.0.0
+        with:
+          license-key: ${{ secrets.LEAKGUARD_LICENSE_KEY }}
+          ensemble: 'true'
+```
+
+> **Note on GitHub Marketplace Snippet:** GitHub Marketplace automatically generates a single-step snippet (`- name:`). If creating a *new* file in `.github/workflows/`, use the complete `name / on / jobs / steps` YAML above!
+
+### Action Inputs
+| Input | Description | Default |
+| :--- | :--- | :--- |
+| `license-key` | LeakGuard License Key (Community, Team, Business, Enterprise) | `community` |
+| `targets` | Files or directories to scan | `.` |
+| `ensemble` | Include ruff + CodeGate ensemble verification | `true` |
+| `changed-only` | Scan only changed files against base ref | `false` |
