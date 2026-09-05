@@ -1,0 +1,9 @@
+{
+  "name": "LeakGuard CodeGate Security Audit",
+  "description": "Path-sensitive resource leak analysis for Python codebases.",
+  "iconName": "shield",
+  "categories": [
+    "Security",
+    "Code quality"
+  ]
+}
