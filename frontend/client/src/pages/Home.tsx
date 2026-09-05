@@ -663,7 +663,7 @@ export default function Home() {
                 {
                   name: "Community",
                   badge: "Free",
-                  price: "$0",
+                  price: "₹0",
                   period: "forever",
                   desc: "Students, OSS, individual devs",
                   color: "border-[#1e2230]",
@@ -674,7 +674,7 @@ export default function Home() {
                 {
                   name: "Team",
                   badge: "Popular",
-                  price: "$49",
+                  price: "₹4,199",
                   period: "/month",
                   desc: "Small & medium dev teams",
                   color: "border-purple-500/40 bg-purple-950/10 ring-1 ring-purple-500/30",
@@ -685,7 +685,7 @@ export default function Home() {
                 {
                   name: "Business",
                   badge: "Pro",
-                  price: "$199",
+                  price: "₹12,699",
                   period: "/month",
                   desc: "Growing tech companies",
                   color: "border-rose-500/30 bg-rose-950/10",
@@ -697,7 +697,7 @@ export default function Home() {
                   name: "Enterprise",
                   badge: "Custom",
                   price: "Custom",
-                  period: "from $10K/yr",
+                  period: "from ₹8.4L/yr",
                   desc: "Large organizations & security ops",
                   color: "border-amber-500/30 bg-amber-950/10",
                   btnCls: "bg-amber-500 hover:bg-amber-400 text-black font-bold",
