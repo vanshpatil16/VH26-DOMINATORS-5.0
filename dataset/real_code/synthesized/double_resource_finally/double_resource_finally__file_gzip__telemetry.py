@@ -1,0 +1,17 @@
+"""Two independent handles, each released in its own finally."""
+
+import gzip
+
+
+def telemetry_file_gzip(path=None, host=None, port=0, url=None, dsn=None, query=None, key=None, user=None, secret=None, sender=None, recipient=None, command=None, items=(), payload=None, worker=None, fileno=0, flag=False):
+    source = gzip.open(path, "rt")
+    try:
+        target = gzip.open(path, "rt")
+        try:
+            payload = source.read()
+            payload = target.read()
+        finally:
+            target.close()
+    finally:
+        source.close()
+    return payload

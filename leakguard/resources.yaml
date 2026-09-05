@@ -1,0 +1,62 @@
+# LeakGuard resource registry.
+#
+# Deterministic and human-editable. NOTHING here is learned by the model: what
+# counts as a resource is a configuration decision, not a prediction.
+#
+# Fields
+#   call    dotted name of the acquiring expression (post alias-resolution)
+#   type    resource family, used for reporting and for the exposure weight
+#   close   method names that release the resource
+#   weight  blast radius if leaked (feeds `resource_type_weight` + risk score)
+#   async   true when the release must be awaited / used via `async with`
+resources:
+  - {call: "open",                            type: FILE,          close: ["close"],                                   weight: 1.0}
+  - {call: "builtins.open",                    type: FILE,          close: ["close"],                                   weight: 1.0}
+  - {call: "io.open",                         type: FILE,          close: ["close"],                                   weight: 1.0}
+  - {call: "io.FileIO",                       type: FILE,          close: ["close"],                                   weight: 1.0}
+  - {call: "codecs.open",                     type: FILE,          close: ["close"],                                   weight: 1.0}
+  - {call: "gzip.open",                       type: FILE,          close: ["close"],                                   weight: 1.0}
+  - {call: "bz2.open",                        type: FILE,          close: ["close"],                                   weight: 1.0}
+  - {call: "lzma.open",                       type: FILE,          close: ["close"],                                   weight: 1.0}
+  - {call: "tempfile.NamedTemporaryFile",     type: FILE,          close: ["close"],                                   weight: 1.0}
+  - {call: "tempfile.TemporaryFile",          type: FILE,          close: ["close"],                                   weight: 1.0}
+  - {call: "tempfile.TemporaryDirectory",     type: FILE,          close: ["cleanup"],                                 weight: 1.0}
+  - {call: "zipfile.ZipFile",                 type: FILE,          close: ["close"],                                   weight: 1.0}
+  - {call: "tarfile.open",                    type: FILE,          close: ["close"],                                   weight: 1.0}
+  - {call: "shelve.open",                     type: FILE,          close: ["close"],                                   weight: 1.0}
+  - {call: "os.fdopen",                       type: FILE,          close: ["close"],                                   weight: 1.5}
+  - {call: "os.open",                         type: FD,            close: ["os.close"],                                weight: 2.0}
+  - {call: "os.pipe",                         type: FD,            close: ["os.close"],                                weight: 2.0}
+  - {call: "socket.socket",                   type: SOCKET,        close: ["close", "shutdown", "detach"],             weight: 2.0}
+  - {call: "socket.create_connection",        type: SOCKET,        close: ["close", "shutdown"],                       weight: 2.0}
+  - {call: "ssl.wrap_socket",                 type: SOCKET,        close: ["close", "unwrap"],                         weight: 2.0}
+  - {call: "urllib.request.urlopen",          type: SOCKET,        close: ["close"],                                   weight: 2.0}
+  - {call: "http.client.HTTPConnection",      type: SOCKET,        close: ["close"],                                   weight: 2.0}
+  - {call: "http.client.HTTPSConnection",     type: SOCKET,        close: ["close"],                                   weight: 2.0}
+  - {call: "ftplib.FTP",                      type: SOCKET,        close: ["close", "quit"],                           weight: 2.0}
+  - {call: "smtplib.SMTP",                    type: SOCKET,        close: ["close", "quit"],                           weight: 2.0}
+  - {call: "telnetlib.Telnet",                type: SOCKET,        close: ["close"],                                   weight: 2.0}
+  - {call: "requests.Session",                type: SESSION,       close: ["close"],                                   weight: 1.5}
+  - {call: "urllib3.PoolManager",             type: SESSION,       close: ["clear"],                                   weight: 1.5}
+  - {call: "sqlite3.connect",                 type: DB,            close: ["close"],                                   weight: 3.0, ctx_closes: false}
+  - {call: "psycopg2.connect",                type: DB,            close: ["close"],                                   weight: 3.0, ctx_closes: false}
+  - {call: "psycopg.connect",                 type: DB,            close: ["close"],                                   weight: 3.0, ctx_closes: false}
+  - {call: "pymysql.connect",                 type: DB,            close: ["close"],                                   weight: 3.0, ctx_closes: false}
+  - {call: "MySQLdb.connect",                 type: DB,            close: ["close"],                                   weight: 3.0, ctx_closes: false}
+  - {call: "cx_Oracle.connect",               type: DB,            close: ["close"],                                   weight: 3.0, ctx_closes: false}
+  - {call: "redis.Redis",                     type: DB,            close: ["close"],                                   weight: 2.5}
+  - {call: "pymongo.MongoClient",             type: DB,            close: ["close"],                                   weight: 3.0}
+  - {call: "subprocess.Popen",                type: PROCESS,       close: ["wait", "communicate", "terminate", "kill"], weight: 2.5}
+  - {call: "multiprocessing.Pool",            type: POOL,          close: ["close", "terminate", "join"],              weight: 2.5}
+  - {call: "multiprocessing.Process",         type: PROCESS,       close: ["join", "terminate", "kill"],               weight: 2.5}
+  - {call: "concurrent.futures.ThreadPoolExecutor",  type: POOL,   close: ["shutdown"],                                weight: 2.5}
+  - {call: "concurrent.futures.ProcessPoolExecutor", type: POOL,   close: ["shutdown"],                                weight: 2.5}
+  - {call: "threading.Lock",                  type: LOCK,          close: ["release"],                                 weight: 1.5, acquired_by: acquire}
+  - {call: "threading.RLock",                 type: LOCK,          close: ["release"],                                 weight: 1.5, acquired_by: acquire}
+  - {call: "threading.Semaphore",             type: LOCK,          close: ["release"],                                 weight: 1.5, acquired_by: acquire}
+  - {call: "mmap.mmap",                       type: MMAP,          close: ["close"],                                   weight: 2.0}
+  - {call: "aiohttp.ClientSession",           type: ASYNC_SESSION, close: ["close"],                                   weight: 2.0, async: true}
+  - {call: "aiohttp.TCPConnector",            type: ASYNC_SESSION, close: ["close"],                                   weight: 2.0, async: true}
+  - {call: "asyncio.open_connection",         type: ASYNC_SOCKET,  close: ["close", "wait_closed"],                    weight: 2.0, async: true}
+  - {call: "asyncpg.connect",                 type: ASYNC_DB,      close: ["close"],                                   weight: 3.0, async: true}
+  - {call: "aiofiles.open",                   type: ASYNC_FILE,    close: ["close"],                                   weight: 1.0, async: true}

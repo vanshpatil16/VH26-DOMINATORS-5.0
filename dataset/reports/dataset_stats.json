@@ -1,0 +1,78 @@
+{
+  "families_by_split": {
+    "test": 16,
+    "train": 73,
+    "val": 16
+  },
+  "feature_names": [
+    "leaking_path_fraction",
+    "escapes_return",
+    "escapes_self_attr",
+    "escapes_container",
+    "escapes_call_arg",
+    "callee_closes_param",
+    "close_present_but_unguarded",
+    "in_loop",
+    "raising_call_between",
+    "reassigned_before_close",
+    "resource_type_weight",
+    "is_test_or_script_file",
+    "is_async_resource",
+    "callee_name_suggests_close",
+    "escape_disposed_downstream",
+    "escape_recipient_unknown",
+    "container_drained_in_module"
+  ],
+  "mutation_operators": {
+    "M10_remove_class_closer": 86,
+    "M11_close_in_dead_branch": 85,
+    "M12_close_wrong_handle": 87,
+    "M13_finally_to_pass": 86,
+    "M14_ctx_manager_swap": 4,
+    "M1_with_to_bare": 1,
+    "M2_delete_branch_close": 85,
+    "M3_insert_early_return": 86,
+    "M4_close_into_try": 86,
+    "M5_close_only_in_except": 85,
+    "M6_reassign_before_close": 2,
+    "M8_async_close_removal": 37,
+    "M9_exitstack_to_bare": 86
+  },
+  "negatives": 2868,
+  "positive_rate": 0.2644,
+  "positives": 1031,
+  "resource_types": {
+    "ASYNC_DB": 21,
+    "ASYNC_FILE": 28,
+    "ASYNC_SESSION": 48,
+    "ASYNC_SOCKET": 2,
+    "DB": 812,
+    "FILE": 1504,
+    "LOCK": 1,
+    "MMAP": 91,
+    "POOL": 219,
+    "PROCESS": 68,
+    "SESSION": 209,
+    "SOCKET": 896
+  },
+  "rows": 3899,
+  "rows_by_split": {
+    "test": 568,
+    "train": 2707,
+    "val": 624
+  },
+  "rows_by_split_label": {
+    "test/label_0": 446,
+    "test/label_1": 122,
+    "train/label_0": 1981,
+    "train/label_1": 726,
+    "val/label_0": 441,
+    "val/label_1": 183
+  },
+  "rules_verdicts": {
+    "DEFINITE_LEAK": 814,
+    "EXCEPTION_PATH_LEAK": 100,
+    "SAFE": 2550,
+    "UNKNOWN": 435
+  }
+}

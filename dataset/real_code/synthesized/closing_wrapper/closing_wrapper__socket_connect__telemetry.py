@@ -1,0 +1,10 @@
+"""Load payload through contextlib.closing."""
+
+import contextlib
+import socket
+
+
+def telemetry_socket_connect(path=None, host=None, port=0, url=None, dsn=None, query=None, key=None, user=None, secret=None, sender=None, recipient=None, command=None, items=(), payload=None, worker=None, fileno=0, flag=False):
+    with contextlib.closing(socket.create_connection((host, port))) as connection:
+        connection.sendall(payload)
+    return payload

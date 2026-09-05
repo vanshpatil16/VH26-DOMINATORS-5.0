@@ -1,0 +1,18 @@
+"""Load payload with the full try/except/else/finally ladder."""
+
+import MySQLdb
+import logging
+
+
+def ingest_mysqldb(path=None, host=None, port=0, url=None, dsn=None, query=None, key=None, user=None, secret=None, sender=None, recipient=None, command=None, items=(), payload=None, worker=None, fileno=0, flag=False):
+    connection = MySQLdb.connect(host=host, user=user)
+    try:
+        payload = connection.cursor()
+    except OSError:
+        logging.warning("ingest_mysqldb failed")
+        payload = None
+    else:
+        logging.debug("ingest_mysqldb ok")
+    finally:
+        connection.close()
+    return payload

@@ -1,0 +1,91 @@
+{
+  "bias": 2.31138727,
+  "exposure_multipliers": {
+    "formula": "exposure = resource_weight * in_loop? * route? * is_async?",
+    "in_loop": 2.0,
+    "is_async": 1.2,
+    "route": 2.8,
+    "source_of_truth": "leakguard/features.py"
+  },
+  "feature_names": [
+    "leaking_path_fraction",
+    "escapes_return",
+    "escapes_self_attr",
+    "escapes_container",
+    "escapes_call_arg",
+    "callee_closes_param",
+    "close_present_but_unguarded",
+    "in_loop",
+    "raising_call_between",
+    "reassigned_before_close",
+    "resource_type_weight",
+    "is_test_or_script_file",
+    "is_async_resource",
+    "callee_name_suggests_close",
+    "escape_disposed_downstream",
+    "escape_recipient_unknown",
+    "container_drained_in_module"
+  ],
+  "platt": {
+    "a": 2.25384324,
+    "b": -0.351794
+  },
+  "risk_threshold": {
+    "applies_to": "promotion of a rules-UNKNOWN site to LIKELY_LEAK",
+    "derivation": "policy anchor: one unit of exposure, not fitted",
+    "value": 1.0
+  },
+  "threshold": {
+    "derivation": "split conformal on calibration negatives",
+    "max_false_alarm_rate": 0.05,
+    "value": 0.01429087
+  },
+  "training": {
+    "calibration": "Platt on grouped 5-fold out-of-fold scores",
+    "class_weighting": "balanced",
+    "development_positives": 192,
+    "development_rows": 387,
+    "l2": 3.0,
+    "l2_selection": "grouped 5-fold CV over [0.03, 0.1, 0.3, 1.0, 3.0, 10.0, 30.0]",
+    "optimizer": "IRLS",
+    "scope": "served",
+    "scope_meaning": "rows whose rules verdict is UNKNOWN -- the only verdict leakguard/scoring.py consults the model about",
+    "train_positives": 144,
+    "train_rows": 290,
+    "val_positives": 48,
+    "val_rows": 97
+  },
+  "verdict_tiers": {
+    "DEFINITE_LEAK": "analyser proved an unclosed exit path; model not consulted",
+    "LIKELY_LEAK": "rules UNKNOWN, p_leak >= threshold, risk >= risk_threshold",
+    "POSSIBLE_LEAK": "analyser proved closure on normal paths only, OR rules UNKNOWN with p_leak >= threshold but risk < risk_threshold",
+    "SAFE": "analyser proved closure on every path, OR p_leak < threshold",
+    "advisory": [
+      "POSSIBLE_LEAK"
+    ],
+    "blocking": [
+      "DEFINITE_LEAK",
+      "LIKELY_LEAK"
+    ]
+  },
+  "version": 1,
+  "weights": {
+    "callee_closes_param": 0.0,
+    "callee_name_suggests_close": 0.26922698,
+    "close_present_but_unguarded": 0.0,
+    "container_drained_in_module": -1.22469272,
+    "escape_disposed_downstream": -4.51566303,
+    "escape_recipient_unknown": -0.16271552,
+    "escapes_call_arg": 0.26922698,
+    "escapes_container": 0.14449307,
+    "escapes_return": -0.3304429,
+    "escapes_self_attr": 0.0,
+    "in_loop": 0.00827557,
+    "is_async_resource": 0.0,
+    "is_test_or_script_file": 0.0,
+    "leaking_path_fraction": 0.26922698,
+    "raising_call_between": 0.42107277,
+    "reassigned_before_close": 0.0,
+    "resource_type_weight": -0.00623627
+  }
+}

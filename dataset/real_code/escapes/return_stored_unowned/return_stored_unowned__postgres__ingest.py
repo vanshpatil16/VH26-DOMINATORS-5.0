@@ -1,0 +1,17 @@
+"""Factory return stored on a class that never releases it."""
+
+import psycopg2
+
+
+def _acquire_postgres(path=None, host=None, port=0, url=None, dsn=None, query=None, key=None, items=(), flag=False):
+    connection = psycopg2.connect(dsn)
+    return connection
+
+
+class IngestPostgresHolder:
+    def __init__(self, path=None, host=None, port=0, url=None, dsn=None, query=None, key=None, items=(), flag=False):
+        self.connection = _acquire_postgres(path, host, port)
+
+    def ingest_postgres(self):
+        payload = self.connection.cursor()
+        return payload

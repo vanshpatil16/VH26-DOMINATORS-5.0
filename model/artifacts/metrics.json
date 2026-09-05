@@ -1,0 +1,332 @@
+{
+  "calibration_split": "development (grouped 5-fold cross-fit)",
+  "cross_fit": {
+    "brier": 0.005249,
+    "calibration_negatives": 195,
+    "families": 18,
+    "folds": 5,
+    "log_loss": 0.032416,
+    "positives": 192,
+    "rows": 387
+  },
+  "l2": 3.0,
+  "l2_search": [
+    {
+      "cv_log_loss": 0.04018,
+      "l2": 0.03
+    },
+    {
+      "cv_log_loss": 0.038046,
+      "l2": 0.1
+    },
+    {
+      "cv_log_loss": 0.035629,
+      "l2": 0.3
+    },
+    {
+      "cv_log_loss": 0.033412,
+      "l2": 1.0
+    },
+    {
+      "cv_log_loss": 0.032416,
+      "l2": 3.0
+    },
+    {
+      "cv_log_loss": 0.032424,
+      "l2": 10.0
+    },
+    {
+      "cv_log_loss": 0.034109,
+      "l2": 30.0
+    }
+  ],
+  "max_false_alarm_rate": 0.05,
+  "out_of_fold": {
+    "brier": 0.005249,
+    "counts": {
+      "fn": 0,
+      "fp": 10,
+      "tn": 185,
+      "tp": 192
+    },
+    "expected_calibration_error": 0.0061,
+    "f1": 0.9746,
+    "false_alarm_rate": 0.0513,
+    "positives": 192,
+    "precision": 0.9505,
+    "recall": 1.0,
+    "recall_by_edge_case": {
+      "EC-CONT-02": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-CONT-04": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-GEN-04": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-GEN-06": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-GLOB-02": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-INTER-03": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-INTER-04": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-OWN-03": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-OWN-05": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      }
+    },
+    "recall_by_operator": {},
+    "rows": 387,
+    "rules_only_baseline": {
+      "counts": {
+        "fn": 192,
+        "fp": 0,
+        "tn": 195,
+        "tp": 0
+      },
+      "f1": 0.0,
+      "false_alarm_rate": 0.0,
+      "precision": 0.0,
+      "recall": 0.0
+    }
+  },
+  "scope": "served",
+  "test": {
+    "brier": 0.000139,
+    "counts": {
+      "fn": 0,
+      "fp": 0,
+      "tn": 24,
+      "tp": 24
+    },
+    "expected_calibration_error": 0.0094,
+    "f1": 1.0,
+    "false_alarm_rate": 0.0,
+    "positives": 24,
+    "precision": 1.0,
+    "recall": 1.0,
+    "recall_by_edge_case": {
+      "EC-OWN-04": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      }
+    },
+    "recall_by_operator": {},
+    "rows": 48,
+    "rules_only_baseline": {
+      "counts": {
+        "fn": 24,
+        "fp": 0,
+        "tn": 24,
+        "tp": 0
+      },
+      "f1": 0.0,
+      "false_alarm_rate": 0.0,
+      "precision": 0.0,
+      "recall": 0.0
+    }
+  },
+  "test_all_sites_reference": {
+    "brier": 0.731578,
+    "counts": {
+      "fn": 0,
+      "fp": 422,
+      "tn": 24,
+      "tp": 122
+    },
+    "expected_calibration_error": 0.73488,
+    "f1": 0.3664,
+    "false_alarm_rate": 0.9462,
+    "positives": 122,
+    "precision": 0.2243,
+    "recall": 1.0,
+    "recall_by_edge_case": {
+      "EC-ASYNC-04": {
+        "detected": 12,
+        "positives": 12,
+        "recall": 1.0
+      },
+      "EC-DB-01": {
+        "detected": 1,
+        "positives": 1,
+        "recall": 1.0
+      },
+      "EC-OWN-04": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-OWN-05": {
+        "detected": 85,
+        "positives": 85,
+        "recall": 1.0
+      }
+    },
+    "recall_by_operator": {
+      "M10_remove_class_closer": {
+        "detected": 85,
+        "positives": 85,
+        "recall": 1.0
+      },
+      "M14_ctx_manager_swap": {
+        "detected": 1,
+        "positives": 1,
+        "recall": 1.0
+      },
+      "M8_async_close_removal": {
+        "detected": 12,
+        "positives": 12,
+        "recall": 1.0
+      }
+    },
+    "rows": 568,
+    "rules_only_baseline": {
+      "counts": {
+        "fn": 24,
+        "fp": 0,
+        "tn": 446,
+        "tp": 98
+      },
+      "f1": 0.8909,
+      "false_alarm_rate": 0.0,
+      "precision": 1.0,
+      "recall": 0.8033
+    }
+  },
+  "threshold": 0.014291,
+  "train": {
+    "brier": 0.006612,
+    "counts": {
+      "fn": 0,
+      "fp": 2,
+      "tn": 144,
+      "tp": 144
+    },
+    "expected_calibration_error": 0.004966,
+    "f1": 0.9931,
+    "false_alarm_rate": 0.0137,
+    "positives": 144,
+    "precision": 0.9863,
+    "recall": 1.0,
+    "recall_by_edge_case": {
+      "EC-CONT-02": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-CONT-04": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-GEN-04": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-GEN-06": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-INTER-04": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-OWN-05": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      }
+    },
+    "recall_by_operator": {},
+    "rows": 290,
+    "rules_only_baseline": {
+      "counts": {
+        "fn": 144,
+        "fp": 0,
+        "tn": 146,
+        "tp": 0
+      },
+      "f1": 0.0,
+      "false_alarm_rate": 0.0,
+      "precision": 0.0,
+      "recall": 0.0
+    }
+  },
+  "val": {
+    "brier": 7.2e-05,
+    "counts": {
+      "fn": 0,
+      "fp": 0,
+      "tn": 49,
+      "tp": 48
+    },
+    "expected_calibration_error": 0.005657,
+    "f1": 1.0,
+    "false_alarm_rate": 0.0,
+    "positives": 48,
+    "precision": 1.0,
+    "recall": 1.0,
+    "recall_by_edge_case": {
+      "EC-GLOB-02": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-INTER-03": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      },
+      "EC-OWN-03": {
+        "detected": 24,
+        "positives": 24,
+        "recall": 1.0
+      }
+    },
+    "recall_by_operator": {},
+    "rows": 97,
+    "rules_only_baseline": {
+      "counts": {
+        "fn": 48,
+        "fp": 0,
+        "tn": 49,
+        "tp": 0
+      },
+      "f1": 0.0,
+      "false_alarm_rate": 0.0,
+      "precision": 0.0,
+      "recall": 0.0
+    }
+  }
+}
