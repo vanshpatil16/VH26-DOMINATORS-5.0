@@ -187,49 +187,49 @@ export default function Graph() {
   const sourceLabel = repo && activeFile ? `${repo.full_name} · ${activeFile}` : undefined;
 
   return (
-    <div className="min-h-screen bg-[#07080a] text-zinc-100 font-poppins selection:bg-purple-500/30 selection:text-purple-200 p-4 md:p-8 space-y-6">
+    <div className="min-h-screen bg-[#08090a] text-zinc-100 font-sans selection:bg-indigo-500/30 selection:text-indigo-200 p-4 md:p-6 space-y-5">
       {/* Navigation & Header */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#1c1f28]">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
         <div className="flex items-center gap-4">
           <Link
             to="/dashboard"
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#0d0e12] border border-[#1c1f28] hover:border-purple-500/50 hover:bg-[#13151c] text-zinc-400 hover:text-white transition-all duration-200 text-xs font-medium group shadow-sm shadow-black/40"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#0d0f14] border border-white/[0.08] hover:border-indigo-500/40 hover:bg-[#13161f] text-zinc-400 hover:text-white transition-all duration-150 text-xs font-medium group shadow-sm"
           >
-            <ArrowLeft className="w-4 h-4 text-zinc-400 group-hover:-translate-x-0.5 transition-transform" />
-            <span>Back to Dashboard</span>
+            <ArrowLeft className="w-3.5 h-3.5 text-zinc-400 group-hover:-translate-x-0.5 transition-transform" />
+            <span>Dashboard</span>
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl md:text-2xl font-semibold text-white tracking-tight flex items-center gap-2">
+              <h1 className="text-lg md:text-xl font-bold text-white tracking-tight flex items-center gap-2">
                 AST & Code Graph Visualizer
               </h1>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 text-[10px] font-medium tracking-wide">
-                <Sparkles className="w-3 h-3" /> Dynamic Canvas
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-[10px] font-mono font-medium tracking-wide">
+                <Sparkles className="w-3 h-3 text-indigo-400" /> Dynamic Canvas
               </span>
             </div>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Interactive node & edge flow parsed from real repository source pulled via the GitHub API
+              Interactive node & edge flow parsed from real repository source pulled via GitHub API
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0d0e12] border border-[#1c1f28] text-xs text-zinc-400">
-            <GitBranch className="w-3.5 h-3.5 text-purple-400" />
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#0d0f14] border border-white/[0.08] text-xs font-mono text-zinc-400">
+            <GitBranch className="w-3.5 h-3.5 text-indigo-400" />
             <span>Interactive Drag & Marching-Ant Flow</span>
           </div>
         </div>
       </header>
 
       {/* Source picker: repository + file, straight from the GitHub API */}
-      <section className="bg-[#13151b] border border-[#202430] rounded-2xl p-5 space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#1f2432] pb-3">
+      <section className="bg-[#0d0f14] border border-white/[0.08] rounded-md p-4 space-y-4 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
           <div className="flex items-center gap-2">
-            <Github className="w-4 h-4 text-purple-400" />
-            <h2 className="text-sm font-semibold text-white">Source repository</h2>
-            <span className="text-[11px] font-mono text-zinc-500">@{owner}</span>
+            <Github className="w-4 h-4 text-indigo-400" />
+            <h2 className="text-sm font-semibold text-white">Source Repository</h2>
+            <span className="text-[11px] font-mono text-zinc-400">@{owner}</span>
             {repo && (
-              <span className="text-[11px] font-mono text-zinc-600">
+              <span className="text-[11px] font-mono text-zinc-500">
                 · branch {repo.default_branch}
               </span>
             )}
@@ -244,34 +244,34 @@ export default function Graph() {
                 if (e.key === "Enter") void openManualRepo();
               }}
               placeholder="owner/repo or github.com URL…"
-              className="flex-1 md:w-64 bg-[#181b24] border border-[#272c3d] focus:border-purple-500 text-white placeholder-zinc-500 px-3 py-2 rounded-xl text-xs font-mono outline-none transition-colors"
+              className="flex-1 md:w-64 bg-[#13161f] border border-white/[0.08] focus:border-indigo-500 text-white placeholder-zinc-500 px-3 py-1.5 rounded-md text-xs font-mono outline-none transition-colors"
             />
             <button
               onClick={() => void openManualRepo()}
-              className="px-3 py-2 rounded-xl bg-[#181b24] border border-[#272c3d] hover:bg-[#202533] text-zinc-300 hover:text-white text-xs font-medium transition-colors"
+              className="px-3 py-1.5 rounded-md bg-[#13161f] border border-white/[0.08] hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-medium transition-colors"
             >
               Load
             </button>
             <button
               onClick={() => void loadRepos(owner)}
               title="Reload repositories from GitHub"
-              className="p-2 rounded-xl bg-[#181b24] border border-[#272c3d] hover:bg-[#202533] text-zinc-300 hover:text-white transition-colors"
+              className="p-1.5 rounded-md bg-[#13161f] border border-white/[0.08] hover:bg-white/10 text-zinc-300 hover:text-white transition-colors"
             >
               <RefreshCw
-                className={`w-4 h-4 ${loadingRepos ? "animate-spin text-purple-400" : ""}`}
+                className={`w-4 h-4 ${loadingRepos ? "animate-spin text-indigo-400" : ""}`}
               />
             </button>
           </div>
         </div>
 
         {/* Repository pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-purple">
-          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-1 mr-2 flex-shrink-0">
-            <FolderGit2 className="w-3.5 h-3.5 text-purple-400" />
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
+          <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1 mr-1 shrink-0 font-semibold">
+            <FolderGit2 className="w-3.5 h-3.5 text-indigo-400" />
             <span>REPOS:</span>
           </span>
           {repos.length === 0 && !loadingRepos && (
-            <span className="text-xs text-zinc-600 font-mono">none loaded</span>
+            <span className="text-xs text-zinc-500 font-mono">none loaded</span>
           )}
           {repos.map((r) => {
             const active = repo?.full_name === r.full_name;
@@ -279,9 +279,9 @@ export default function Graph() {
               <button
                 key={r.id}
                 onClick={() => void loadRepo(r)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${active
-                    ? "bg-purple-500/15 border-purple-500/50 text-purple-200"
-                    : "bg-[#181b24] border-[#272c3d] text-zinc-400 hover:text-white hover:border-purple-500/30"
+                className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${active
+                    ? "bg-indigo-500/20 border-indigo-500/50 text-indigo-200"
+                    : "bg-[#13161f] border-white/[0.06] text-zinc-400 hover:text-white hover:border-white/[0.12]"
                   }`}
               >
                 {r.name}
@@ -296,7 +296,7 @@ export default function Graph() {
         {/* Python file picker */}
         <div className="space-y-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-1">
+            <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1 font-semibold">
               <FileCode2 className="w-3.5 h-3.5 text-cyan-400" />
               <span>
                 PYTHON SOURCES{files.length > 0 ? ` · ${files.length}` : ""}
@@ -304,18 +304,18 @@ export default function Graph() {
               </span>
             </span>
             <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={fileQuery}
                 onChange={(e) => setFileQuery(e.target.value)}
                 placeholder="Filter files by path…"
-                className="w-full bg-[#181b24] border border-[#272c3d] focus:border-cyan-500 text-white placeholder-zinc-500 pl-9 pr-3 py-2 rounded-xl text-xs font-mono outline-none transition-colors"
+                className="w-full bg-[#13161f] border border-white/[0.08] focus:border-cyan-500 text-white placeholder-zinc-500 pl-8 pr-3 py-1.5 rounded-md text-xs font-mono outline-none transition-colors"
               />
             </div>
           </div>
 
-          <div className="max-h-44 overflow-y-auto scrollbar-purple grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-1.5 pr-1">
+          <div className="max-h-44 overflow-y-auto custom-scrollbar grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-1.5 pr-1">
             {visibleFiles.map((f) => {
               const active = activeFile === f.path;
               return (
@@ -323,27 +323,27 @@ export default function Graph() {
                   key={f.sha + f.path}
                   onClick={() => repo && void analyzeFile(repo, f.path)}
                   title={f.path}
-                  className={`flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-mono transition-colors ${active
+                  className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md border text-xs font-mono transition-colors ${active
                       ? "bg-cyan-500/10 border-cyan-500/40 text-cyan-200"
-                      : "bg-[#0f1117] border-[#202430] text-zinc-400 hover:text-white hover:border-purple-500/40"
+                      : "bg-[#13161f] border-white/[0.06] text-zinc-400 hover:text-white hover:border-white/[0.12]"
                     }`}
                 >
                   <span className="truncate">{f.path}</span>
-                  <span className="text-[9px] text-zinc-600 flex-shrink-0">
+                  <span className="text-[9px] text-zinc-500 shrink-0 font-mono">
                     {(f.size / 1024).toFixed(1)}kB
                   </span>
                 </button>
               );
             })}
             {!loadingTree && files.length === 0 && (
-              <span className="text-xs text-zinc-600 font-mono py-2">
+              <span className="text-xs text-zinc-500 font-mono py-2">
                 No .py files in this repository.
               </span>
             )}
           </div>
 
           {ast && leakCount !== null && (
-            <p className="text-[11px] font-mono text-zinc-500">
+            <p className="text-xs font-mono text-zinc-400 pt-1">
               CodeGate parsed{" "}
               <span className="text-cyan-400">{activeFile}</span> ·{" "}
               <span className={leakCount > 0 ? "text-amber-400" : "text-emerald-400"}>

@@ -32,7 +32,9 @@ import {
   Copy,
   Network,
   ShieldCheck,
+  CreditCard,
 } from "lucide-react";
+import PricingSection from "../components/PricingSection";
 import {
   AreaChart,
   Area,
@@ -249,35 +251,35 @@ export default function Dashboard() {
     }));
 
   return (
-    <div className="font-poppins min-h-screen bg-[#07080a] text-white p-4 md:p-7 select-none">
+    <div className="font-sans min-h-screen bg-[#08090a] text-white p-4 md:p-6 select-none">
       {/* Outer Card Wrapper */}
-      <div className="max-w-[1440px] mx-auto bg-[#0d0e12] border border-[#1c1f28] rounded-[28px] p-5 md:p-7 shadow-2xl space-y-6">
+      <div className="max-w-[1440px] mx-auto bg-[#0d0f14] border border-white/[0.08] rounded-xl p-4 md:p-6 shadow-xl space-y-5">
 
         {/* Top Navbar */}
-        <header className="flex flex-wrap xl:flex-nowrap items-center justify-between gap-4 pb-4 border-b border-[#1b1e27]">
+        <header className="flex flex-wrap xl:flex-nowrap items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
           {/* Brand Logo & Back to Home */}
           <div className="flex items-center space-x-3 shrink-0">
             <Link
               to="/"
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors shrink-0"
+              className="p-1.5 rounded-md bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors shrink-0"
               title="Back to Landing Page"
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white font-poppins flex items-center space-x-2 shrink-0">
+            <h1 className="text-lg md:text-xl font-bold tracking-tight text-white flex items-center space-x-2 shrink-0">
               <span>Insighta</span>
-              <span className="text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2.5 py-0.5 rounded-full font-mono font-normal whitespace-nowrap">
+              <span className="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 px-2 py-0.5 rounded-md font-mono font-normal whitespace-nowrap">
                 GitHub AI
               </span>
             </h1>
           </div>
 
           {/* Navigation Pill Tabs */}
-          <div className="flex items-center bg-[#15171e] border border-[#252936] p-1.5 rounded-2xl overflow-x-auto shrink-0 max-w-full scrollbar-none">
+          <div className="flex items-center bg-[#13161f] border border-white/[0.06] p-1 rounded-md overflow-x-auto shrink-0 max-w-full custom-scrollbar gap-1">
             <button
               onClick={() => setActiveTab("Overview")}
-              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all ${activeTab === "Overview"
-                ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${activeTab === "Overview"
+                ? "bg-indigo-600 text-white font-semibold shadow-sm"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
                 }`}
             >
@@ -286,8 +288,8 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setActiveTab("Reports")}
-              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all ${activeTab === "Reports"
-                ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${activeTab === "Reports"
+                ? "bg-indigo-600 text-white font-semibold shadow-sm"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
                 }`}
             >
@@ -296,8 +298,8 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setActiveTab("Optimization")}
-              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all ${activeTab === "Optimization"
-                ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${activeTab === "Optimization"
+                ? "bg-indigo-600 text-white font-semibold shadow-sm"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
                 }`}
             >
@@ -306,17 +308,27 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setActiveTab("Insights")}
-              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all ${activeTab === "Insights"
-                ? "bg-purple-600 text-white hover:text-white focus:text-white active:text-white font-semibold shadow-lg shadow-purple-600/30 border border-purple-400/50"
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${activeTab === "Insights"
+                ? "bg-indigo-600 text-white font-semibold shadow-sm"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
                 }`}
             >
               <Lightbulb className="w-3.5 h-3.5" />
               <span>Insights</span>
             </button>
+            <button
+              onClick={() => setActiveTab("Plans")}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${activeTab === "Plans"
+                ? "bg-indigo-600 text-white font-semibold shadow-sm"
+                : "text-zinc-400 hover:text-white hover:bg-white/5"
+                }`}
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>Plans & Pricing</span>
+            </button>
             <Link
               to="/codegate"
-              className="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all text-emerald-400 hover:text-white hover:bg-white/5 shrink-0 whitespace-nowrap"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-emerald-400 hover:text-white hover:bg-white/5 shrink-0 whitespace-nowrap"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>CodeGate</span>
@@ -324,12 +336,12 @@ export default function Dashboard() {
           </div>
 
           {/* Connected GitHub User Info & Action Buttons */}
-          <div className="flex items-center space-x-2.5 flex-wrap sm:flex-nowrap shrink-0">
-            <div className="flex items-center space-x-2.5 bg-[#141722] border border-emerald-500/30 px-3 py-1.5 rounded-2xl shrink-0">
+          <div className="flex items-center space-x-2 flex-wrap sm:flex-nowrap shrink-0">
+            <div className="flex items-center space-x-2 bg-[#13161f] border border-emerald-500/25 px-2.5 py-1 rounded-md shrink-0">
               <img
                 src={githubUser?.avatar_url || "https://avatars.githubusercontent.com/u/9919?v=4"}
                 alt={githubUser?.login}
-                className="w-7 h-7 rounded-full border border-emerald-400/50 object-cover shrink-0"
+                className="w-6 h-6 rounded-full border border-emerald-400/40 object-cover shrink-0"
               />
               <div className="flex flex-col justify-center text-left leading-tight py-0.5 min-w-0">
                 <span className="text-xs font-semibold text-white font-mono truncate max-w-[140px] whitespace-nowrap block">
@@ -374,8 +386,12 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Dashboard Title & GitHub Repository Selector */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        {activeTab === "Plans" ? (
+          <PricingSection onSelectPlan={(id) => toast.success(`Selected ${id.toUpperCase()} plan`)} />
+        ) : (
+          <>
+            {/* Dashboard Title & GitHub Repository Selector */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl md:text-3xl font-semibold text-white tracking-tight font-poppins">
               Amplitude Data AI Overview
@@ -1185,6 +1201,8 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
         </section>
+        </>
+        )}
 
       </div>
 

@@ -520,7 +520,7 @@ export default function Admin() {
   );
 
   return (
-    <div className="flex min-h-screen bg-[#08090c] font-poppins text-zinc-100 selection:bg-purple-500/30 selection:text-purple-200">
+    <div className="flex min-h-screen bg-[#08090a] font-sans text-zinc-100 selection:bg-indigo-500/30 selection:text-indigo-200">
       {/* ── Left Sidebar ── */}
       <div className="hidden md:block">
         <AdminSidebar
@@ -541,7 +541,7 @@ export default function Admin() {
       {/* ── Main Dashboard Content ── */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Header Bar */}
-        <header className="sticky top-0 z-30 border-b border-[#171a24] bg-[#08090c]/90 backdrop-blur-md px-4 py-3 md:px-8 flex items-center justify-between">
+        <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#08090a]/90 backdrop-blur-md px-4 py-3 md:px-6 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <h1 className="text-base font-bold text-white tracking-tight">
               {activeTab === "overview" && "Analytics Overview"}

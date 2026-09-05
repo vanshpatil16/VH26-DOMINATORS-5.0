@@ -116,17 +116,17 @@ export default function AstTreeTab({ ast }: { ast: AstNode | null }) {
     <div className="space-y-3">
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value.toLowerCase())}
             placeholder="Filter nodes…"
-            className="w-full bg-[#0d0e12] border border-[#1c1f28] rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-purple-500/50"
+            className="w-full bg-[#0d0f14] border border-white/[0.08] rounded-md pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-indigo-500/50"
           />
         </div>
-        <span className="text-[10px] font-mono text-zinc-600">{countNodes(ast)} nodes · click to expand</span>
+        <span className="text-[10px] font-mono text-zinc-500">{countNodes(ast)} nodes · click to expand</span>
       </div>
-      <div className="rounded-2xl border border-[#1c1f28] bg-[#0a0b0e] p-4 overflow-x-auto max-h-[60vh] overflow-y-auto">
+      <div className="rounded-md border border-white/[0.08] bg-[#0d0f14] p-4 overflow-x-auto max-h-[60vh] overflow-y-auto custom-scrollbar">
         <TreeNode node={ast} depth={0} query={query} expanded={expanded} toggle={toggle} />
       </div>
     </div>

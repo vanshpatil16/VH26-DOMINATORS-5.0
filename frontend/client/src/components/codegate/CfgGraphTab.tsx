@@ -91,7 +91,7 @@ function FunctionGraph({ fn }: { fn: CfgFunction }) {
           {fn.blocks.length} blocks · {fn.edges.length} edges
         </span>
       </div>
-      <div className="rounded-2xl border border-[#1c1f28] bg-[#0a0b0e] overflow-x-auto">
+      <div className="rounded-md border border-white/[0.08] bg-[#0d0f14] overflow-x-auto custom-scrollbar">
         <svg width={width} height={height} className="min-w-full">
           <defs>
             <marker id="cg-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
@@ -155,7 +155,7 @@ function FunctionGraph({ fn }: { fn: CfgFunction }) {
                 style={{ filter: b.tag === "leak" ? "drop-shadow(0 0 6px rgba(239,68,68,.35))" : undefined }}
               >
                 <rect
-                  x={p.x} y={p.y} width={NODE_W} height={NODE_H} rx={10}
+                  x={p.x} y={p.y} width={NODE_W} height={NODE_H} rx={6}
                   fill={col.fill} stroke={isSel ? "#a78bfa" : col.stroke}
                   strokeWidth={isSel ? 1.8 : 1.1}
                 />
@@ -181,14 +181,14 @@ function FunctionGraph({ fn }: { fn: CfgFunction }) {
       </div>
 
       {sel && (
-        <div className="rounded-xl border border-[#1c1f28] bg-[#0d0e12] p-3">
-          <p className="text-[10px] font-mono text-zinc-500 mb-1">BLOCK #{sel.id} — FULL STATEMENTS</p>
+        <div className="rounded-md border border-white/[0.08] bg-[#0d0f14] p-3 space-y-1">
+          <p className="text-[10px] font-mono text-zinc-400 font-semibold tracking-wider">BLOCK #{sel.id} — STATEMENTS</p>
           {sel.statements.length ? (
-            <pre className="text-[11px] font-mono text-zinc-300 whitespace-pre-wrap">
+            <pre className="text-xs font-mono text-zinc-200 bg-[#13161f] p-2.5 rounded border border-white/[0.06] whitespace-pre-wrap overflow-x-auto">
               {sel.statements.map((s, i) => `${i + 1}. ${s}`).join("\n")}
             </pre>
           ) : (
-            <p className="text-[11px] text-zinc-600">(empty block)</p>
+            <p className="text-xs text-zinc-500 font-mono">(empty block)</p>
           )}
         </div>
       )}

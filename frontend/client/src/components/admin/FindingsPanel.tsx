@@ -58,7 +58,7 @@ interface Props {
 }
 
 const controlClass =
-  "rounded-lg border border-[#242938] bg-[#0f1117] px-2.5 py-1.5 text-[11px] text-zinc-300 outline-none transition-colors focus:border-purple-500";
+  "rounded-md border border-white/[0.08] bg-[#13161f] px-2.5 py-1 text-xs text-zinc-300 outline-none transition-colors focus:border-indigo-500";
 
 export default function FindingsPanel({
   findings,

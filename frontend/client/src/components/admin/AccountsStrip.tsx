@@ -77,9 +77,9 @@ export default function AccountsStrip({
   };
 
   return (
-    <div className="rounded-2xl border border-[#1e2230] bg-[#13151b]">
+    <div className="rounded-md border border-white/[0.08] bg-[#0d0f14] shadow-sm">
       <div className="flex flex-wrap items-center gap-2 p-3">
-        <span className="mr-1 text-xs font-medium uppercase tracking-wider text-zinc-500">
+        <span className="mr-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-400">
           Accounts
         </span>
 
@@ -88,10 +88,10 @@ export default function AccountsStrip({
           return (
             <div
               key={acc.login}
-              className={`group flex items-center gap-2 rounded-xl border py-1.5 pl-1.5 pr-2 transition-colors ${
+              className={`group flex items-center gap-2 rounded-md border py-1 pl-1.5 pr-2 transition-colors ${
                 active
-                  ? "border-purple-500/50 bg-purple-500/10"
-                  : "border-[#242938] bg-[#0f1117] hover:border-purple-500/30"
+                  ? "border-indigo-500/50 bg-indigo-500/10"
+                  : "border-white/[0.06] bg-[#13161f] hover:border-white/[0.12]"
               }`}
             >
               <button
