@@ -10,6 +10,8 @@ dependencies = [
     "astor",
     "astunparse",
     "graphviz",
+    "httpx>=0.25",
+    "python-dotenv",
 ]
 
 [project.scripts]
