@@ -1,12 +1,11 @@
 import socket
 
 def fetch(host, port):
-    s = socket.socket()
-    s.connect((host, port))
-    data = s.recv(1024)
-    if not data:
-        return None  # LEAK
-    s.close()
+    with socket.socket() as s:
+        s.connect((host, port))
+        data = s.recv(1024)
+        if not data:
+            return None  # LEAK
     return data
 
 def fetch_safe(host, port):
