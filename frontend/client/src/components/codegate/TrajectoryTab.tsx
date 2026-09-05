@@ -9,13 +9,13 @@ import { ChevronDown, ChevronRight, CircleCheck, CircleAlert, CircleDashed, Time
 import type { TrajectoryStep } from "@/lib/codegate";
 
 const PHASE_STYLE: Record<string, { color: string; bg: string; border: string; label: string }> = {
-  parse: { color: "text-cyan-300", bg: "bg-cyan-500/10", border: "border-cyan-500/30", label: "PARSE" },
-  desugar: { color: "text-blue-300", bg: "bg-blue-500/10", border: "border-blue-500/30", label: "DESUGAR" },
-  cfg: { color: "text-purple-300", bg: "bg-purple-500/10", border: "border-purple-500/30", label: "CFG" },
-  resources: { color: "text-amber-300", bg: "bg-amber-500/10", border: "border-amber-500/30", label: "RESOURCES" },
-  paths: { color: "text-emerald-300", bg: "bg-emerald-500/10", border: "border-emerald-500/30", label: "PATHS" },
-  exceptions: { color: "text-orange-300", bg: "bg-orange-500/10", border: "border-orange-500/30", label: "EXCEPTIONS" },
-  fix: { color: "text-pink-300", bg: "bg-pink-500/10", border: "border-pink-500/30", label: "FIX" },
+  parse: { color: "text-zinc-200", bg: "bg-white/[0.06]", border: "border-white/[0.12]", label: "PARSE" },
+  desugar: { color: "text-zinc-300", bg: "bg-white/[0.04]", border: "border-white/[0.1]", label: "DESUGAR" },
+  cfg: { color: "text-zinc-200", bg: "bg-white/[0.06]", border: "border-white/[0.12]", label: "CFG" },
+  resources: { color: "text-zinc-300", bg: "bg-white/[0.04]", border: "border-white/[0.1]", label: "RESOURCES" },
+  paths: { color: "text-zinc-200", bg: "bg-white/[0.06]", border: "border-white/[0.12]", label: "PATHS" },
+  exceptions: { color: "text-zinc-300", bg: "bg-white/[0.04]", border: "border-white/[0.1]", label: "EXCEPTIONS" },
+  fix: { color: "text-zinc-200", bg: "bg-white/[0.06]", border: "border-white/[0.12]", label: "FIX" },
 };
 
 const STATUS_ICON: Record<string, React.ReactNode> = {

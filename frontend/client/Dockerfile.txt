@@ -1,0 +1,8 @@
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY frontend/client/ /app/
+RUN npm ci && npm run build
+
+# Serve the static assets with a tiny web server (caddy, nginx, or http‑server)
+FROM caddy:2-alpine
+COPY --from=build /app/dist /srv

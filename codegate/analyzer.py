@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from .api_semantics import APISemanticsResolver
-from .config import CodeGateConfig, ResourceSpec
+from .config import CodeGateConfig, ResourceSpec, default_user_rules_path, load_user_rules
 from .imports import build_import_map, resolve_call_name
 from .knowledge_base import KnowledgeBase
 from .scalpel_patch import build_cfg, get_all_blocks_filtered
@@ -834,7 +834,143 @@ def sync_kb_and_resolve_unknowns(tree: ast.AST, config: CodeGateConfig, import_m
                         if not any(r.matches_acquire(resolved_cname) for r in config.resources):
                             config.resources.append(ResourceSpec(acquire=resolved_cname, release=rel))
 
+    # 4. User-defined rules: explicit path or `.codegate/rules.yaml` auto-load.
+    rule_path = config.user_rules_path or default_user_rules_path()
+    if rule_path:
+        for spec in load_user_rules(rule_path):
+            if not any(s.matches_acquire(spec.acquire) for s in config.resources):
+                config.resources.append(spec)
+
+    # 5. Duck-type fallback: unknown dotted APIs with an observed cleanup call
+    # are treated as resources (in-memory specs, never persisted).
+    _infer_duck_specs(tree, config, import_map)
+
     return kb
+
+
+# Release-method names that signal "this value is a resource" when observed.
+_DUCK_RELEASE_METHODS = (
+    "close", "aclose", "quit", "disconnect", "dispose", "shutdown",
+    "cleanup", "destroy", "terminate", "kill", "release",
+)
+# Import heads that are never resources even with cleanup observed
+# (synchronization primitives, interpreter/OS handles).
+_DUCK_DENY_MODULES = frozenset({"threading", "asyncio", "os", "sys"})
+
+
+def _infer_duck_specs(tree: ast.AST, config: CodeGateConfig, import_map: dict[str, str]) -> None:
+    """Synthesize in-memory `inferred` specs for unknown APIs.
+
+    A candidate is `var = <imported.module.Call>(...)` (single-Name target,
+    or `with <Call> as var`) where no existing spec matches and the function
+    later calls a known cleanup method on the variable (or an alias of it).
+    Findings from these specs report at `potential` confidence.
+    """
+    import_map = import_map or {}
+
+    def infer_in_scope(scope: ast.AST) -> None:
+        assigns: dict[str, str] = {}
+        for sub in _walk_own(scope):
+            if (
+                isinstance(sub, ast.Assign)
+                and len(sub.targets) == 1
+                and isinstance(sub.targets[0], ast.Name)
+                and isinstance(sub.value, ast.Call)
+            ):
+                target, call = sub.targets[0].id, sub.value
+            elif (
+                isinstance(sub, ast.AnnAssign)
+                and isinstance(sub.target, ast.Name)
+                and isinstance(sub.value, ast.Call)
+            ):
+                target, call = sub.target.id, sub.value
+            else:
+                target, call = None, None
+            if target is not None and call is not None:
+                cname = _call_name(call)
+                if cname:
+                    resolved = resolve_call_name(cname, import_map)
+                    if "." in resolved:
+                        assigns[target] = resolved
+            if isinstance(sub, ast.With):
+                for item in sub.items:
+                    if isinstance(item.context_expr, ast.Call) and isinstance(
+                        item.optional_vars, ast.Name
+                    ):
+                        cname = _call_name(item.context_expr)
+                        if cname:
+                            resolved = resolve_call_name(cname, import_map)
+                            if "." in resolved:
+                                assigns.setdefault(item.optional_vars.id, resolved)
+        if not assigns:
+            return
+        # Transitive alias closure: y = var.
+        aliases: dict[str, set[str]] = {v: {v} for v in assigns}
+        changed = True
+        while changed:
+            changed = False
+            for sub in _walk_own(scope):
+                if (
+                    isinstance(sub, ast.Assign)
+                    and len(sub.targets) == 1
+                    and isinstance(sub.targets[0], ast.Name)
+                    and isinstance(sub.value, ast.Name)
+                ):
+                    src, dst = sub.value.id, sub.targets[0].id
+                    for names in aliases.values():
+                        if src in names and dst not in names:
+                            names.add(dst)
+                            changed = True
+        # Observed cleanup methods per tracked var.
+        observed: dict[str, list[str]] = {}
+        for sub in _walk_own(scope):
+            if isinstance(sub, ast.With):
+                for item in sub.items:
+                    if isinstance(item.context_expr, ast.Call) and isinstance(
+                        item.optional_vars, ast.Name
+                    ):
+                        var = item.optional_vars.id
+                        if var in assigns and "close" not in observed.setdefault(var, []):
+                            observed[var].append("close")
+                continue
+            call = None
+            if isinstance(sub, ast.Expr) and isinstance(sub.value, ast.Call):
+                call = sub.value
+            elif (
+                isinstance(sub, ast.Expr)
+                and isinstance(sub.value, ast.Await)
+                and isinstance(sub.value.value, ast.Call)
+            ):
+                call = sub.value.value
+            if (
+                call is not None
+                and isinstance(call.func, ast.Attribute)
+                and isinstance(call.func.value, ast.Name)
+            ):
+                recv, meth = call.func.value.id, call.func.attr
+                if meth in _DUCK_RELEASE_METHODS:
+                    for var, names in aliases.items():
+                        if recv in names and meth not in observed.setdefault(var, []):
+                            observed[var].append(meth)
+        for var, resolved in assigns.items():
+            if not observed.get(var):
+                continue
+            if any(s.matches_acquire(resolved) for s in config.resources):
+                continue
+            head = resolved.split(".")[0]
+            if head not in import_map or head in _DUCK_DENY_MODULES:
+                continue
+            meths = observed[var]
+            primary = "close" if "close" in meths else meths[0]
+            alt = [m for m in meths if m != primary]
+            config.resources.append(
+                ResourceSpec(acquire=resolved, release=primary, alt_releases=alt, inferred=True)
+            )
+
+    infer_in_scope(tree)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            infer_in_scope(node)
 
 
 def analyze_source_with_cfg(source: str, filename: str = "<string>", config: CodeGateConfig | None = None) -> tuple[list[Leak], any]:
@@ -893,6 +1029,18 @@ def analyze_source_with_cfg(source: str, filename: str = "<string>", config: Cod
     # separate records (reduces noise; the second finding is a secondary aspect
     # of the same resource lifetime).
     leaks = _merge_duplicate_findings(leaks)
+
+    # Duck-typed specs are in-memory inference (no built-in/user rule), so
+    # their findings report at `potential` confidence and never autofix
+    # (fix.py only touches `definite` findings).
+    inferred = [s for s in config.resources if s.inferred]
+    if inferred:
+        for lk in leaks:
+            if any(s.matches_acquire(lk.acquire) for s in inferred):
+                lk.confidence = "potential"
+                lk.severity = "warning"
+                if "inferred-resource" not in lk.leak_reasons:
+                    lk.leak_reasons.append("inferred-resource")
 
     return leaks, cfg
 

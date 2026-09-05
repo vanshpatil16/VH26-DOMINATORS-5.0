@@ -74,3 +74,22 @@ rules:
       - pattern-either:
           - pattern: $X = subprocess.Popen(...)
           - pattern: $X = multiprocessing.Process(...)
+
+  # ── stdlib high-frequency (batch 1) ──────────────────────────────
+  - id: codegate-unguarded-stdlib-batch1
+    languages: [python]
+    severity: WARNING
+    message: "'$X' stdlib resource acquired without a context manager — CodeGate will verify cleanup on all paths"
+    patterns:
+      - pattern-either:
+          - pattern: $X = os.fdopen(...)
+          - pattern: $X = mmap.mmap(...)
+          - pattern: $X = ftplib.FTP(...)
+          - pattern: $X = smtplib.SMTP(...)
+          - pattern: $X = smtplib.SMTP_SSL(...)
+          - pattern: $X = telnetlib.Telnet(...)
+          - pattern: $X = select.poll(...)
+          - pattern: $X = selectors.DefaultSelector(...)
+          - pattern: $X = logging.FileHandler(...)
+          - pattern: $X = logging.RotatingFileHandler(...)
+          - pattern: $X = logging.TimedRotatingFileHandler(...)

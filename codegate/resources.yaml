@@ -241,6 +241,64 @@ resources:
   close:
   - shutdown
   weight: 1.0
+- call: os.fdopen
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: mmap.mmap
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: ftplib.FTP
+  type: SOCKET
+  close:
+  - close
+  - quit
+  weight: 1.0
+- call: smtplib.SMTP
+  type: SOCKET
+  close:
+  - close
+  - quit
+  weight: 1.0
+- call: smtplib.SMTP_SSL
+  type: SOCKET
+  close:
+  - close
+  - quit
+  weight: 1.0
+- call: telnetlib.Telnet
+  type: SOCKET
+  close:
+  - close
+  weight: 1.0
+- call: select.poll
+  type: SOCKET
+  close:
+  - close
+  weight: 1.0
+- call: selectors.DefaultSelector
+  type: SOCKET
+  close:
+  - close
+  weight: 1.0
+- call: logging.FileHandler
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: logging.RotatingFileHandler
+  type: FILE
+  close:
+  - close
+  weight: 1.0
+- call: logging.TimedRotatingFileHandler
+  type: FILE
+  close:
+  - close
+  weight: 1.0
 api_contracts:
 - library: some_library
   function: cleanup
@@ -1205,3 +1263,135 @@ api_contracts:
   discovered_by: manual
   version: '1.0'
   reason: Creates a process; caller should join()/terminate().
+- library: os
+  function: fdopen
+  resource_type: FILE
+  behavior: CREATES_RESOURCE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 1.0
+  evidence: Wraps a file descriptor in a file object; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Wraps a file descriptor in a file object; caller must close it.
+- library: mmap
+  function: mmap
+  resource_type: FILE
+  behavior: CREATES_RESOURCE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.98
+  evidence: Creates a memory-mapped file object; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates a memory-mapped file object; caller must close it.
+- library: ftplib
+  function: FTP
+  resource_type: SOCKET
+  behavior: CREATES_RESOURCE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.98
+  evidence: Opens an FTP connection; caller must close() or quit().
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens an FTP connection; caller must close() or quit().
+- library: smtplib
+  function: SMTP
+  resource_type: SOCKET
+  behavior: CREATES_RESOURCE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.98
+  evidence: Opens an SMTP connection; caller must close() or quit().
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens an SMTP connection; caller must close() or quit().
+- library: smtplib
+  function: SMTP_SSL
+  resource_type: SOCKET
+  behavior: CREATES_RESOURCE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.98
+  evidence: Opens an SMTP-over-SSL connection; caller must close() or quit().
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens an SMTP-over-SSL connection; caller must close() or quit().
+- library: telnetlib
+  function: Telnet
+  resource_type: SOCKET
+  behavior: CREATES_RESOURCE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Opens a Telnet connection; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a Telnet connection; caller must close it.
+- library: select
+  function: poll
+  resource_type: SOCKET
+  behavior: CREATES_RESOURCE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.9
+  evidence: Creates a polling object for fds; caller should close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates a polling object for fds; caller should close it.
+- library: selectors
+  function: DefaultSelector
+  resource_type: SOCKET
+  behavior: CREATES_RESOURCE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Creates an I/O selector; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates an I/O selector; caller must close it.
+- library: logging
+  function: FileHandler
+  resource_type: FILE
+  behavior: CREATES_RESOURCE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Opens a log file; handler should be closed (or use shutdown).
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a log file; handler should be closed (or use shutdown).
+- library: logging
+  function: RotatingFileHandler
+  resource_type: FILE
+  behavior: CREATES_RESOURCE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Opens a rotating log file; handler should be closed.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a rotating log file; handler should be closed.
+- library: logging
+  function: TimedRotatingFileHandler
+  resource_type: FILE
+  behavior: CREATES_RESOURCE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Opens a time-rotated log file; handler should be closed.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a time-rotated log file; handler should be closed.

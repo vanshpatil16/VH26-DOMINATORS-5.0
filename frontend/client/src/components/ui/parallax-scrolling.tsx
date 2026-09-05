@@ -53,7 +53,7 @@ export function ParallaxComponent() {
         <div className="parallax__visuals relative w-full h-full flex items-center justify-center">
           {/* Top & Bottom Fade Masks */}
           <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#08090a] via-[#08090a]/60 to-transparent z-20 pointer-events-none" />
-          
+
           {/* Widescreen Layers */}
           <div data-parallax-layers className="parallax__layers relative w-full h-full flex items-center justify-center">
             {/* Background 16:9 Mesh Gradient Layer */}

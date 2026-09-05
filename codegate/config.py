@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import yaml
 
 
 @dataclass
@@ -23,6 +27,9 @@ class ResourceSpec:
     ownership_transferred_on_return: bool = True
     # Optional: treat passing handle to these functions as transfer
     transfer_via_calls: list[str] = field(default_factory=list)
+    # True when synthesized by the duck-type fallback (in-memory inference,
+    # never persisted). Findings from inferred specs report at `potential`.
+    inferred: bool = False
 
     def matches_acquire(self, call_name: str) -> bool:
         """Canonical or suffix match (canonical names come from import resolution)."""
@@ -49,6 +56,9 @@ class CodeGateConfig:
     exception_safety: bool = True
     # Path to external API knowledge base resources.yaml
     kb_path: str | None = None
+    # Path to a user-defined rules YAML file (explicit override).
+    # When None, `.codegate/rules.yaml` under the cwd is auto-loaded if present.
+    user_rules_path: str | None = None
     # Minimum confidence threshold for auto-persisting LLM resolved API contracts
     min_confidence: float = 0.85
 
@@ -88,6 +98,18 @@ class CodeGateConfig:
                     release="join",
                     alt_releases=["terminate", "kill"],
                 ),
+                # ── stdlib high-frequency (batch 1) ──────────────────────
+                ResourceSpec(acquire="os.fdopen", release="close"),
+                ResourceSpec(acquire="mmap.mmap", release="close"),
+                ResourceSpec(acquire="ftplib.FTP", release="close", alt_releases=["quit"]),
+                ResourceSpec(acquire="smtplib.SMTP", release="close", alt_releases=["quit"]),
+                ResourceSpec(acquire="smtplib.SMTP_SSL", release="close", alt_releases=["quit"]),
+                ResourceSpec(acquire="telnetlib.Telnet", release="close"),
+                ResourceSpec(acquire="select.poll", release="close"),
+                ResourceSpec(acquire="selectors.DefaultSelector", release="close"),
+                ResourceSpec(acquire="logging.FileHandler", release="close"),
+                ResourceSpec(acquire="logging.RotatingFileHandler", release="close"),
+                ResourceSpec(acquire="logging.TimedRotatingFileHandler", release="close"),
             ]
         )
 
@@ -103,3 +125,67 @@ def load_config_from_dict(d: dict) -> CodeGateConfig:
         try_finally_is_safe=d.get("try_finally_is_safe", True),
         exception_safety=d.get("exception_safety", True),
     )
+
+
+USER_RULES_FILENAME = "rules.yaml"
+
+
+def default_user_rules_path() -> str | None:
+    """Project-local DSL file (`.codegate/rules.yaml` under cwd), if present."""
+    cand = Path.cwd() / ".codegate" / USER_RULES_FILENAME
+    return str(cand) if cand.is_file() else None
+
+
+def normalize_user_rule(d: Any) -> ResourceSpec | None:
+    """Tolerant single-rule parse. Accepts both schemas:
+
+    - engine style:  {acquire: "acme.db.connect", release: "close", alt_releases: ["quit"]}
+    - KB style:      {call: "acme.db.connect", type: "DATABASE", close: ["close", "quit"]}
+    """
+    if not isinstance(d, dict):
+        return None
+    acquire = d.get("acquire") or d.get("call")
+    if not acquire or not isinstance(acquire, str):
+        return None
+    alt: list[str] = [str(a) for a in (d.get("alt_releases") or [])]
+    release = d.get("release")
+    if release is None:
+        close = d.get("close", ["close"])
+        if isinstance(close, str):
+            close = [close]
+        if not isinstance(close, list) or not close:
+            return ResourceSpec(acquire=acquire, release="close", alt_releases=alt)
+        primary = str(close[0])
+        rest = [str(c) for c in close[1:]]
+        alt = rest + [a for a in alt if a not in rest]
+    else:
+        primary = str(release)
+    return ResourceSpec(acquire=acquire, release=primary, alt_releases=alt)
+
+
+def load_user_rules(path: str | Path | None) -> list[ResourceSpec]:
+    """Load user DSL rules. Accepts a top-level list or a `{resources: [...]}` mapping.
+    Missing files, parse errors, and malformed entries yield no specs (never raise)."""
+    if not path:
+        return []
+    p = Path(path)
+    if not p.is_file():
+        return []
+    try:
+        data = yaml.safe_load(p.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    if isinstance(data, dict):
+        items = data.get("resources", [])
+    elif isinstance(data, list):
+        items = data
+    else:
+        return []
+    if not isinstance(items, list):
+        return []
+    specs: list[ResourceSpec] = []
+    for item in items:
+        spec = normalize_user_rule(item)
+        if spec is not None and not any(s.matches_acquire(spec.acquire) for s in specs):
+            specs.append(spec)
+    return specs
