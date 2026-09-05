@@ -13,7 +13,7 @@ import { Link } from "wouter";
 import {
   ArrowLeft, Play, Loader2, FileCode2, RotateCcw, ShieldCheck, ScrollText,
   Network, AudioWaveform, Wand2, TriangleAlert, Upload, X, Scale, Sparkles,
-  Zap, Cpu, CheckCircle2, Code2, Terminal, Layers
+  Zap, Cpu, CheckCircle2, Code2, Terminal, Layers, BookOpen
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DEMOS, runCodegateAnalysis, type CodegateResult } from "@/lib/codegate";
@@ -22,6 +22,7 @@ import TrajectoryTab from "@/components/codegate/TrajectoryTab";
 import AstTreeTab from "@/components/codegate/AstTreeTab";
 import CfgGraphTab from "@/components/codegate/CfgGraphTab";
 import EnsembleTab from "@/components/codegate/EnsembleTab";
+import KnowledgeBaseTab from "@/components/codegate/KnowledgeBaseTab";
 
 interface LoadedFile {
   name: string;
@@ -444,6 +445,19 @@ export default function Codegate() {
                   <span>CFG Flow</span>
                 </TabsTrigger>
 
+                <TabsTrigger
+                  value="kb"
+                  className="data-[state=active]:bg-indigo-600/30 data-[state=active]:border-indigo-500/40 data-[state=active]:text-indigo-100 text-zinc-400 hover:text-white text-xs font-medium gap-2 transition-all px-3 py-1.5 rounded border border-transparent"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Knowledge Base</span>
+                  {result.knowledgeBase && (
+                    <span className="px-1.5 py-0.2 rounded bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-[10px] font-mono">
+                      {result.knowledgeBase.matched.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+
                 {result.ensemble && (
                   <TabsTrigger
                     value="ensemble"
@@ -470,6 +484,9 @@ export default function Codegate() {
               </TabsContent>
               <TabsContent value="cfg" className="focus:outline-none">
                 <CfgGraphTab functions={result.cfg.functions} />
+              </TabsContent>
+              <TabsContent value="kb" className="focus:outline-none">
+                <KnowledgeBaseTab kb={result.knowledgeBase} />
               </TabsContent>
               {result.ensemble && (
                 <TabsContent value="ensemble" className="focus:outline-none">

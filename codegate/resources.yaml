@@ -941,3 +941,267 @@ api_contracts:
   version: ''
   reason: The function explicitly closes the file after processing, transferring ownership
     to the function and not returning the file handle.
+- library: io
+  function: open
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 1.0
+  evidence: Returns a file object; caller owns it and must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Returns a file object; caller owns it and must close it.
+- library: codecs
+  function: open
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Returns a codec-wrapped file object; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Returns a codec-wrapped file object; caller must close it.
+- library: tempfile
+  function: NamedTemporaryFile
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.98
+  evidence: Creates a temporary file; caller should close (or it auto-deletes on GC).
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates a temporary file; caller should close (or it auto-deletes on GC).
+- library: tempfile
+  function: TemporaryFile
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.98
+  evidence: Creates an unnamed temporary file; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates an unnamed temporary file; caller must close it.
+- library: tempfile
+  function: TemporaryDirectory
+  resource_type: DIRECTORY
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Creates a temporary directory; caller must call cleanup().
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates a temporary directory; caller must call cleanup().
+- library: gzip
+  function: open
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.9
+  evidence: Returns a GzipFile; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Returns a GzipFile; caller must close it.
+- library: bz2
+  function: open
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.9
+  evidence: Returns a BZ2File; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Returns a BZ2File; caller must close it.
+- library: lzma
+  function: open
+  resource_type: FILE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.9
+  evidence: Returns an LZMAFile; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Returns an LZMAFile; caller must close it.
+- library: socket
+  function: socket
+  resource_type: SOCKET
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 1.0
+  evidence: Creates a socket; caller owns it and must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates a socket; caller owns it and must close it.
+- library: socket
+  function: create_connection
+  resource_type: SOCKET
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Opens a TCP connection; caller must close the returned socket.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a TCP connection; caller must close the returned socket.
+- library: socket
+  function: socketpair
+  resource_type: SOCKET
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.9
+  evidence: Returns a pair of connected sockets; caller must close both.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Returns a pair of connected sockets; caller must close both.
+- library: sqlite3
+  function: connect
+  resource_type: DATABASE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 1.0
+  evidence: Opens a SQLite database connection; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a SQLite database connection; caller must close it.
+- library: psycopg2
+  function: connect
+  resource_type: DATABASE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.98
+  evidence: Opens a PostgreSQL connection; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a PostgreSQL connection; caller must close it.
+- library: psycopg
+  function: connect
+  resource_type: DATABASE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.98
+  evidence: Opens a PostgreSQL (v3) connection; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a PostgreSQL (v3) connection; caller must close it.
+- library: pymysql
+  function: connect
+  resource_type: DATABASE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Opens a MySQL connection; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a MySQL connection; caller must close it.
+- library: mysql.connector
+  function: connect
+  resource_type: DATABASE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Opens a MySQL connection; caller must close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Opens a MySQL connection; caller must close it.
+- library: pymongo
+  function: MongoClient
+  resource_type: DATABASE
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.9
+  evidence: Creates a MongoDB client; caller should close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates a MongoDB client; caller should close it.
+- library: requests
+  function: Session
+  resource_type: HTTP
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Creates an HTTP session; caller should close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates an HTTP session; caller should close it.
+- library: httpx
+  function: Client
+  resource_type: HTTP
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Creates an HTTP client; caller should close it.
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates an HTTP client; caller should close it.
+- library: httpx
+  function: AsyncClient
+  resource_type: HTTP
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Creates an async HTTP client; caller should await aclose().
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates an async HTTP client; caller should await aclose().
+- library: subprocess
+  function: Popen
+  resource_type: PROCESS
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.95
+  evidence: Starts a subprocess; caller should wait()/kill()/communicate().
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Starts a subprocess; caller should wait()/kill()/communicate().
+- library: multiprocessing
+  function: Process
+  resource_type: PROCESS
+  behavior: ACQUIRE
+  ownership: LOCAL
+  exception_safety: NOT_GUARANTEED
+  confidence: 0.9
+  evidence: Creates a process; caller should join()/terminate().
+  source: CodeGate knowledge base
+  discovered_by: manual
+  version: '1.0'
+  reason: Creates a process; caller should join()/terminate().

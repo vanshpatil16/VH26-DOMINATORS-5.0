@@ -22,10 +22,12 @@ from .analyzer import (
     _get_acquire_info,
     analyze_exception_safety,
     analyze_source_with_cfg,
+    sync_kb_and_resolve_unknowns,
 )
 from .artifacts import ast_to_json, cfg_to_json, leaks_to_json
 from .config import CodeGateConfig
 from .desugar import MatchDesugarer
+from .imports import build_import_map
 from .trajectory import Trajectory
 
 
@@ -190,6 +192,116 @@ def analyze_full(
             )
             s.data = ensemble_result
 
+    # ------------------------------------------------- 8 knowledge-base + LLM
+    kb_info: dict[str, Any] = {
+        "rulesCount": len(config.resources),
+        "contractsCount": 0,
+        "rules": [
+            {
+                "call": r.acquire,
+                "type": getattr(r, "kind", "call"),
+                "close": r.release,
+                "alt_releases": list(getattr(r, "alt_releases", []) or []),
+                "weight": getattr(r, "weight", 1.0),
+            }
+            for r in config.resources
+        ],
+        "matched": [],
+        "llmDiscovered": [],
+        "llmAvailable": False,
+    }
+    try:
+        from .knowledge_base import KnowledgeBase
+        from .llm_resolver import get_llm_config
+
+        # Record snapshot of contracts BEFORE sync so we can diff new ones added by LLM
+        kb_before = KnowledgeBase()
+        contracts_before = {
+            (c.library, c.function) for c in kb_before.contracts
+        }
+
+        # Run the same KB+LLM sync pipeline the analyzer uses so unknown external
+        # library calls in this snippet get resolved and persisted.
+        import_map = build_import_map(tree) if tree is not None else {}
+        with t.step("knowledge_base", "Knowledge Base: sync rules + LLM-resolve unknown APIs") as s:
+            kb_after = sync_kb_and_resolve_unknowns(tree, config, import_map) if tree is not None else KnowledgeBase()
+            newly_discovered = [
+                c for c in kb_after.contracts
+                if (c.library, c.function) not in contracts_before
+                and c.discovered_by == "llm"
+            ]
+            s.detail = (
+                f"{len(kb_after.contracts)} total contracts · "
+                f"{len(newly_discovered)} newly LLM-resolved"
+            )
+            s.data = {
+                "totalContracts": len(kb_after.contracts),
+                "newlyDiscovered": len(newly_discovered),
+            }
+
+        # Check if LLM resolver is configured
+        llm_cfg = get_llm_config()
+        kb_info["llmAvailable"] = bool(llm_cfg.get("api_key"))
+        kb_info["llmProvider"] = llm_cfg.get("provider", "none")
+        kb_info["llmModel"] = llm_cfg.get("model", "")
+        kb_info["contractsCount"] = len(kb_after.contracts)
+        kb_info["rulesCount"] = len(config.resources)
+
+        # Update rules list to include any new ones added after LLM resolution
+        kb_info["rules"] = [
+            {
+                "call": r.acquire,
+                "type": getattr(r, "kind", "call"),
+                "close": r.release,
+                "alt_releases": list(getattr(r, "alt_releases", []) or []),
+                "weight": getattr(r, "weight", 1.0),
+            }
+            for r in config.resources
+        ]
+
+        # Matched acquires enriched with full contract details
+        for acq in acquires:
+            dotted = acq["acquire"]
+            head, _, tail = dotted.rpartition(".")
+            contract = kb_after.lookup(library=head, function=tail) if head else None
+            kb_info["matched"].append({
+                "var": acq["var"],
+                "acquire": acq["acquire"],
+                "release": acq["release"],
+                "line": acq["line"],
+                "resource_type": contract.resource_type if contract else "FILE",
+                "exception_safety": contract.exception_safety if contract else "NOT_GUARANTEED",
+                "ownership": contract.ownership if contract else "UNKNOWN",
+                "confidence": contract.confidence if contract else 0.85,
+                "behavior": contract.behavior if contract else "ACQUIRE",
+                "discovered_by": contract.discovered_by if contract else "static",
+                "evidence": contract.evidence if contract else "",
+                "reason": contract.reason if contract else "",
+                "source": contract.source if contract else "",
+            })
+
+        # LLM-discovered contracts in this scan (full detail for UI)
+        kb_info["llmDiscovered"] = [
+            {
+                "library": c.library,
+                "function": c.function,
+                "call": f"{c.library}.{c.function}" if c.library and c.library != "builtins" else c.function,
+                "resource_type": c.resource_type,
+                "behavior": c.behavior,
+                "ownership": c.ownership,
+                "exception_safety": c.exception_safety,
+                "confidence": c.confidence,
+                "evidence": c.evidence,
+                "reason": c.reason,
+                "source": c.source,
+                "version": c.version,
+                "discovered_by": c.discovered_by,
+            }
+            for c in newly_discovered
+        ]
+    except Exception as kb_err:
+        kb_info["error"] = str(kb_err)
+
     total_ms = (time.perf_counter() - t0) * 1000
 
     return {
@@ -210,6 +322,7 @@ def analyze_full(
         "cfg": {"functions": cfg_funcs},
         "fix": fix_result,
         "ensemble": ensemble_result,
+        "knowledgeBase": kb_info,
     }
 
 
