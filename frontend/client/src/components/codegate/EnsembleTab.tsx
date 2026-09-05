@@ -3,14 +3,14 @@
  * Shows every raw linter finding with its final verdict:
  * confirmed (with path evidence), exception-unsafe (upgraded), or refuted (suppressed).
  */
-import { CheckCircle2, ShieldAlert, ShieldCheck, HelpCircle, Scissors, Ruler } from "lucide-react";
+import { CheckCircle2, ShieldAlert, ShieldCheck, HelpCircle, Scissors, Ruler, XCircle } from "lucide-react";
 import type { EnsembleResult } from "@/lib/codegate";
 
 const VERDICT_STYLE: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
   confirmed_path_leak: {
-    label: "CONFIRMED LEAK",
-    cls: "bg-red-500/10 border-red-500/30 text-red-400",
-    icon: <ShieldAlert className="w-3.5 h-3.5" />,
+    label: "VERIFIED LEAK",
+    cls: "bg-rose-500/10 border-rose-500/30 text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.1)]",
+    icon: <XCircle className="w-3.5 h-3.5 text-rose-400" />,
   },
   confirmed_exception_unsafe: {
     label: "EXCEPTION-UNSAFE",
@@ -43,7 +43,7 @@ export default function EnsembleTab({ ensemble }: { ensemble: EnsembleResult }) 
       {/* summary chips */}
       <div className="flex flex-wrap items-center gap-2 px-1">
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#0d0f14] border border-white/[0.08] text-[11px] font-mono text-zinc-400">
-          <Ruler className="w-3.5 h-3.5 text-cyan-400" />
+          <Ruler className="w-3.5 h-3.5 text-zinc-300" />
           pre-filters: semgrep {semgrep?.available ? semgrep.findings.length : "n/a"} ·
           ruff {ruff?.available ? ruff.findings.length : "n/a"} + syntactic {syntacticPrefilter?.findings ?? 0}
         </span>
@@ -58,7 +58,7 @@ export default function EnsembleTab({ ensemble }: { ensemble: EnsembleResult }) 
           {counts.refuted_safe ?? 0} refuted
         </span>
         {total > 0 && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-indigo-500/10 border border-indigo-500/30 text-[11px] font-mono text-indigo-300">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-white/[0.05] border border-white/[0.12] text-[11px] font-mono text-zinc-300">
             noise −{noiseReductionPct}%
           </span>
         )}

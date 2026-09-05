@@ -1,14 +1,11 @@
 """Demo: CodeGate should flag leak in read_file but not in safe variants."""
 
 def read_file(path):
-    f = open(path)
+    with open(path) as f:
+        data = f.read()
 
-    data = f.read()
-
-    if not data:
-        return None   # LEAK
-
-    f.close()
+        if not data:
+            return None   # LEAK
     return data
 
 

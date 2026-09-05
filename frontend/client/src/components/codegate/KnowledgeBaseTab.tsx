@@ -10,9 +10,9 @@ const RESOURCE_TYPES = ["ALL", "FILE", "SOCKET", "DATABASE", "LOCK", "TEMP_FILE"
 
 const BEHAVIOR_STYLE: Record<string, { color: string; bg: string; border: string }> = {
   CLOSES_INPUT:        { color: "text-emerald-300",  bg: "bg-emerald-500/10",  border: "border-emerald-500/30" },
-  PRESERVES_INPUT:     { color: "text-blue-300",     bg: "bg-blue-500/10",     border: "border-blue-500/30"    },
-  CREATES_RESOURCE:    { color: "text-indigo-300",   bg: "bg-indigo-500/10",   border: "border-indigo-500/30"  },
-  RETURNS_RESOURCE:    { color: "text-indigo-300",   bg: "bg-indigo-500/10",   border: "border-indigo-500/30"  },
+  PRESERVES_INPUT:     { color: "text-zinc-200",     bg: "bg-white/[0.06]",     border: "border-white/[0.14]"    },
+  CREATES_RESOURCE:    { color: "text-zinc-200",     bg: "bg-white/[0.06]",     border: "border-white/[0.14]"  },
+  RETURNS_RESOURCE:    { color: "text-zinc-200",     bg: "bg-white/[0.06]",     border: "border-white/[0.14]"  },
   TRANSFERS_OWNERSHIP: { color: "text-amber-300",    bg: "bg-amber-500/10",    border: "border-amber-500/30"   },
   CONDITIONAL_CLOSE:   { color: "text-orange-300",   bg: "bg-orange-500/10",   border: "border-orange-500/30"  },
   UNKNOWN:             { color: "text-zinc-400",     bg: "bg-zinc-500/10",     border: "border-zinc-500/30"    },
@@ -37,15 +37,15 @@ function LLMContractCard({ contract }: { contract: KnowledgeBaseContract }) {
   const [open, setOpen] = useState(false);
   const bhv = BEHAVIOR_STYLE[contract.behavior] ?? BEHAVIOR_STYLE.UNKNOWN;
   return (
-    <div className="rounded-md border border-indigo-500/25 bg-[#0d0f14] overflow-hidden shadow-sm">
+    <div className="rounded-md border border-white/[0.08] bg-[#0d0f14] overflow-hidden shadow-sm">
       <button onClick={() => setOpen(o => !o)}
         className="w-full flex items-start justify-between gap-3 p-3.5 text-left hover:bg-white/[0.02] transition-colors">
         <div className="flex-1 min-w-0 space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[10px] font-mono font-semibold">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.14] text-zinc-200 text-[10px] font-mono font-semibold">
               <Brain className="w-2.5 h-2.5" /> LLM
             </span>
-            <code className="text-indigo-300 text-xs font-mono font-bold">{contract.call}(…)</code>
+            <code className="text-zinc-100 text-xs font-mono font-bold">{contract.call}(…)</code>
             <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold ${bhv.color} ${bhv.bg} border ${bhv.border}`}>
               {contract.behavior}
             </span>
@@ -123,15 +123,15 @@ export default function KnowledgeBaseTab({ kb }: { kb?: KnowledgeBaseInfo | null
     <div className="space-y-4 text-zinc-100 font-sans">
 
       {/* LLM Status Banner */}
-      <div className={`flex items-center gap-3 px-3.5 py-2.5 rounded-md border text-xs font-mono ${llmAvailable ? "bg-indigo-500/10 border-indigo-500/25 text-indigo-300" : "bg-zinc-800/50 border-white/[0.08] text-zinc-500"}`}>
+      <div className={`flex items-center gap-3 px-3.5 py-2.5 rounded-md border text-xs font-mono ${llmAvailable ? "bg-white/[0.04] border-white/[0.14] text-zinc-200" : "bg-zinc-800/50 border-white/[0.08] text-zinc-500"}`}>
         {llmAvailable ? (
           <>
-            <Brain className="w-4 h-4 shrink-0 text-indigo-400" />
-            <span className="font-semibold text-indigo-200">LLM Resolver Active</span>
+            <Brain className="w-4 h-4 shrink-0 text-zinc-300" />
+            <span className="font-semibold text-zinc-100">LLM Resolver Active</span>
             <span className="text-zinc-500">·</span>
             <span className="capitalize">{llmProvider}</span>
-            {llmModel && <><span className="text-zinc-600">·</span><code className="text-indigo-400">{llmModel}</code></>}
-            <span className="ml-auto text-[10px] text-indigo-400 flex items-center gap-1 shrink-0">
+            {llmModel && <><span className="text-zinc-600">·</span><code className="text-zinc-300">{llmModel}</code></>}
+            <span className="ml-auto text-[10px] text-zinc-400 flex items-center gap-1 shrink-0">
               <Zap className="w-3 h-3" /> Auto-discovers unknown libraries
             </span>
           </>
@@ -146,10 +146,10 @@ export default function KnowledgeBaseTab({ kb }: { kb?: KnowledgeBaseInfo | null
       {/* Overview Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "TRACKED RULES",  val: kb?.rulesCount ?? rules.length, sub: "From resources.yaml",       icon: <BookOpen className="w-3.5 h-3.5 text-indigo-400" />,  valCls: "text-white" },
-          { label: "API CONTRACTS",  val: kb?.contractsCount ?? 0,        sub: "Exception safety specs",    icon: <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />, valCls: "text-white" },
-          { label: "MATCHED IN FILE",val: matched.length,                 sub: "Acquires in snippet",       icon: <Cpu className="w-3.5 h-3.5 text-cyan-400" />,         valCls: "text-white" },
-          { label: "LLM DISCOVERED", val: llmDiscovered.length,           sub: "New this scan",             icon: <Brain className="w-3.5 h-3.5 text-indigo-400" />,     valCls: "text-indigo-300" },
+          { label: "TRACKED RULES",  val: kb?.rulesCount ?? rules.length, sub: "From resources.yaml",       icon: <BookOpen className="w-3.5 h-3.5 text-zinc-300" />,  valCls: "text-white" },
+          { label: "API CONTRACTS",  val: kb?.contractsCount ?? 0,        sub: "Exception safety specs",    icon: <ShieldCheck className="w-3.5 h-3.5 text-zinc-300" />, valCls: "text-white" },
+          { label: "MATCHED IN FILE",val: matched.length,                 sub: "Acquires in snippet",       icon: <Cpu className="w-3.5 h-3.5 text-zinc-300" />,         valCls: "text-white" },
+          { label: "LLM DISCOVERED", val: llmDiscovered.length,           sub: "New this scan",             icon: <Brain className="w-3.5 h-3.5 text-zinc-300" />,     valCls: "text-zinc-100" },
         ].map(({ label, val, sub, icon, valCls }) => (
           <div key={label} className="bg-[#0d0f14] border border-white/[0.08] p-3.5 rounded-md space-y-1">
             <div className="flex items-center justify-between text-xs text-zinc-400 font-mono"><span>{label}</span>{icon}</div>
@@ -163,7 +163,7 @@ export default function KnowledgeBaseTab({ kb }: { kb?: KnowledgeBaseInfo | null
       {llmDiscovered.length > 0 ? (
         <div className="space-y-2.5">
           <div className="flex items-center gap-2 px-0.5">
-            <Sparkles className="w-4 h-4 text-indigo-400" />
+            <Sparkles className="w-4 h-4 text-zinc-300" />
             <h3 className="text-xs font-semibold text-white tracking-tight">LLM-Discovered Contracts</h3>
             <span className="text-[10px] font-mono text-zinc-500">— resolved this scan &amp; persisted to resources.yaml</span>
           </div>
@@ -187,19 +187,19 @@ export default function KnowledgeBaseTab({ kb }: { kb?: KnowledgeBaseInfo | null
             {matched.map((m, i) => (
               <div key={i} className="bg-[#13161f] border border-white/[0.06] p-3 rounded-md space-y-2 text-xs font-mono">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-indigo-300 font-bold truncate">{m.acquire}(…)</span>
+                  <span className="text-zinc-100 font-bold truncate">{m.acquire}(…)</span>
                   <div className="flex items-center gap-1 shrink-0">
                     {m.discovered_by === "llm" && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[10px] font-semibold">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.14] text-zinc-200 text-[10px] font-semibold">
                         <Brain className="w-2.5 h-2.5" /> LLM
                       </span>
                     )}
-                    <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[10px]">{m.resource_type}</span>
+                    <span className="px-1.5 py-0.5 rounded bg-white/[0.08] text-zinc-200 text-[10px]">{m.resource_type}</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-zinc-400 text-[11px]">
-                  <span>Bound: <code className="text-amber-300">{m.var}</code> (L{m.line})</span>
-                  <span>Release: <code className="text-emerald-300">{m.release}()</code></span>
+                  <span>Bound: <code className="text-zinc-100">{m.var}</code> (L{m.line})</span>
+                  <span>Release: <code className="text-zinc-100">{m.release}()</code></span>
                 </div>
                 <div className="flex items-center gap-2 pt-1 border-t border-white/[0.04] text-[10px]">
                   <span className="text-zinc-500">Exception Safety:</span>
@@ -222,7 +222,7 @@ export default function KnowledgeBaseTab({ kb }: { kb?: KnowledgeBaseInfo | null
         <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
           {RESOURCE_TYPES.map(t => (
             <button key={t} onClick={() => setSelectedType(t)}
-              className={`px-2.5 py-1 rounded text-xs font-mono transition-all whitespace-nowrap ${selectedType === t ? "bg-indigo-600 text-white font-semibold" : "bg-[#13161f] text-zinc-400 hover:text-white hover:bg-white/10"}`}>
+              className={`px-2.5 py-1 rounded text-xs font-mono transition-all whitespace-nowrap ${selectedType === t ? "bg-white text-zinc-950 font-semibold" : "bg-[#13161f] text-zinc-400 hover:text-white hover:bg-white/10"}`}>
               {t}
             </button>
           ))}
@@ -231,7 +231,7 @@ export default function KnowledgeBaseTab({ kb }: { kb?: KnowledgeBaseInfo | null
           <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search KB rules…"
-            className="w-full bg-[#13161f] border border-white/[0.08] focus:border-indigo-500 text-white placeholder-zinc-500 pl-8 pr-3 py-1 rounded text-xs font-mono outline-none transition-colors" />
+            className="w-full bg-[#13161f] border border-white/[0.08] focus:border-white/30 text-white placeholder-zinc-500 pl-8 pr-3 py-1 rounded text-xs font-mono outline-none transition-colors" />
         </div>
       </div>
 
@@ -243,9 +243,9 @@ export default function KnowledgeBaseTab({ kb }: { kb?: KnowledgeBaseInfo | null
         <div className="divide-y divide-white/[0.04] max-h-[360px] overflow-y-auto custom-scrollbar">
           {filteredRules.map((r, idx) => (
             <div key={idx} className="grid grid-cols-[1.5fr_1fr_1.5fr_0.6fr_0.6fr] gap-2 px-4 py-2.5 items-center hover:bg-white/[0.02] text-xs font-mono">
-              <span className="text-indigo-300 font-medium truncate">{r.call}</span>
+              <span className="text-zinc-100 font-medium truncate">{r.call}</span>
               <span className="inline-flex w-fit px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 text-[10px]">{r.type}</span>
-              <span className="text-emerald-300 truncate">{Array.isArray(r.close) ? r.close.join(" / ") : r.close}</span>
+              <span className="text-zinc-300 truncate">{Array.isArray(r.close) ? r.close.join(" / ") : r.close}</span>
               <span className="text-zinc-500 text-[11px]">{r.weight ?? "1.0"}</span>
               <span className="text-zinc-600 text-[10px]">yaml</span>
             </div>

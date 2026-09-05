@@ -5,20 +5,19 @@ Description: Resource is properly closed at the end of function, but early retur
 import sqlite3
 
 def get_user_status(user_id):
-    conn = sqlite3.connect("app.db")
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT active FROM users WHERE id = ?", (user_id,))
-    row = cursor.fetchone()
-    
-    if row is None:
-        # LEAK: Early return without closing connection
-        return "NOT_FOUND"
+    with sqlite3.connect("app.db") as conn:
+        cursor = conn.cursor()
         
-    if not row[0]:
-        # LEAK: Another early return missing close()
-        return "INACTIVE"
+        cursor.execute("SELECT active FROM users WHERE id = ?", (user_id,))
+        row = cursor.fetchone()
         
-    status = "ACTIVE"
-    conn.close()  # Only reached if all conditionals pass
+        if row is None:
+            # LEAK: Early return without closing connection
+            return "NOT_FOUND"
+            
+        if not row[0]:
+            # LEAK: Another early return missing close()
+            return "INACTIVE"
+            
+        status = "ACTIVE"
     return status

@@ -79,7 +79,7 @@ function FunctionGraph({ fn }: { fn: CfgFunction }) {
       <div className="flex items-center gap-2">
         <h3 className="text-xs font-mono text-zinc-300">{fn.name}()</h3>
         {fn.hasLeak ? (
-          <span className="px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-medium">
+          <span className="px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[10px] font-medium">
             LEAK DETECTED
           </span>
         ) : (
