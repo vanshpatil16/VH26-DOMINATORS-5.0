@@ -1,0 +1,448 @@
+{
+  "generated_at": "2026-09-05 03:14:06",
+  "cases": 19,
+  "llm_enabled": true,
+  "llm_model": "deepseek-v4-flash",
+  "pricing": {
+    "in_per_1m": 0.15,
+    "out_per_1m": 0.6
+  },
+  "rows": [
+    {
+      "name": "simple_leak",
+      "expected": "leak",
+      "complexity": {
+        "loc": 4,
+        "max_depth": 0,
+        "branches": 0,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "leak",
+      "codegate_leaks": 1,
+      "codegate_ms": 0.0,
+      "llm_verdict": "leak",
+      "llm_confidence": "definite",
+      "llm_reason": "File object opened but never closed before return.",
+      "llm_ms": 3037.55,
+      "llm_prompt_tokens": 231,
+      "llm_completion_tokens": 89,
+      "llm_total_tokens": 320
+    },
+    {
+      "name": "early_return",
+      "expected": "leak",
+      "complexity": {
+        "loc": 7,
+        "max_depth": 0,
+        "branches": 1,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "leak",
+      "codegate_leaks": 1,
+      "codegate_ms": 0.0,
+      "llm_verdict": "leak",
+      "llm_confidence": "definite",
+      "llm_reason": "If error is truthy, the function returns early without closing the opened file.",
+      "llm_ms": 2608.86,
+      "llm_prompt_tokens": 245,
+      "llm_completion_tokens": 102,
+      "llm_total_tokens": 347
+    },
+    {
+      "name": "loop_leak",
+      "expected": "leak",
+      "complexity": {
+        "loc": 9,
+        "max_depth": 0,
+        "branches": 1,
+        "loops": 1,
+        "functions": 1
+      },
+      "codegate_verdict": "leak",
+      "codegate_leaks": 1,
+      "codegate_ms": 0.0,
+      "llm_verdict": "leak",
+      "llm_confidence": "definite",
+      "llm_reason": "When len(results) > 10, the function returns before closing the currently open file f.",
+      "llm_ms": 3237.44,
+      "llm_prompt_tokens": 259,
+      "llm_completion_tokens": 204,
+      "llm_total_tokens": 463
+    },
+    {
+      "name": "exception_leak",
+      "expected": "leak",
+      "complexity": {
+        "loc": 7,
+        "max_depth": 0,
+        "branches": 0,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "potential",
+      "codegate_leaks": 0,
+      "codegate_ms": 0.0,
+      "llm_verdict": "leak",
+      "llm_confidence": "definite",
+      "llm_reason": "If process_file raises an exception, the except block returns None without closing the file.",
+      "llm_ms": 3042.44,
+      "llm_prompt_tokens": 241,
+      "llm_completion_tokens": 272,
+      "llm_total_tokens": 513
+    },
+    {
+      "name": "nested_exception_leak",
+      "expected": "leak",
+      "complexity": {
+        "loc": 7,
+        "max_depth": 0,
+        "branches": 0,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "leak",
+      "codegate_leaks": 1,
+      "codegate_ms": 0.0,
+      "llm_verdict": "leak",
+      "llm_confidence": "definite",
+      "llm_reason": "If log_error() raises or a non-Exception exception occurs, f.close() is never executed.",
+      "llm_ms": 8076.49,
+      "llm_prompt_tokens": 243,
+      "llm_completion_tokens": 695,
+      "llm_total_tokens": 938
+    },
+    {
+      "name": "multiple_resources",
+      "expected": "leak",
+      "complexity": {
+        "loc": 13,
+        "max_depth": 0,
+        "branches": 1,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "leak",
+      "codegate_leaks": 2,
+      "codegate_ms": 0.0,
+      "llm_verdict": "leak",
+      "llm_confidence": "definite",
+      "llm_reason": "f2 is never closed on any path, and f1 is not closed on the early return when data1 is empty.",
+      "llm_ms": 4702.95,
+      "llm_prompt_tokens": 294,
+      "llm_completion_tokens": 208,
+      "llm_total_tokens": 502
+    },
+    {
+      "name": "overwritten_resource",
+      "expected": "leak",
+      "complexity": {
+        "loc": 6,
+        "max_depth": 0,
+        "branches": 0,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "leak",
+      "codegate_leaks": 1,
+      "codegate_ms": 0.0,
+      "llm_verdict": "leak",
+      "llm_confidence": "definite",
+      "llm_reason": "The first file object from open(path1) is overwritten by the second open() call and never closed.",
+      "llm_ms": 2185.07,
+      "llm_prompt_tokens": 250,
+      "llm_completion_tokens": 116,
+      "llm_total_tokens": 366
+    },
+    {
+      "name": "caller_interproc",
+      "expected": "leak",
+      "complexity": {
+        "loc": 11,
+        "max_depth": 0,
+        "branches": 1,
+        "loops": 0,
+        "functions": 2
+      },
+      "codegate_verdict": "leak",
+      "codegate_leaks": 1,
+      "codegate_ms": 0.0,
+      "llm_verdict": "leak",
+      "llm_confidence": "definite",
+      "llm_reason": "If the file content contains 'SECRET', process_and_maybe_close returns without closing the file, and caller does not close it.",
+      "llm_ms": 5477.12,
+      "llm_prompt_tokens": 269,
+      "llm_completion_tokens": 289,
+      "llm_total_tokens": 558
+    },
+    {
+      "name": "socket_leak",
+      "expected": "leak",
+      "complexity": {
+        "loc": 8,
+        "max_depth": 2,
+        "branches": 1,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "leak",
+      "codegate_leaks": 1,
+      "codegate_ms": 0.0,
+      "llm_verdict": "leak",
+      "llm_confidence": "definite",
+      "llm_reason": "Socket is not closed on the early return path when some_condition() is true.",
+      "llm_ms": 3748.02,
+      "llm_prompt_tokens": 252,
+      "llm_completion_tokens": 116,
+      "llm_total_tokens": 368
+    },
+    {
+      "name": "database_leak",
+      "expected": "leak",
+      "complexity": {
+        "loc": 9,
+        "max_depth": 2,
+        "branches": 1,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "leak",
+      "codegate_leaks": 1,
+      "codegate_ms": 0.0,
+      "llm_verdict": "leak",
+      "llm_confidence": "definite",
+      "llm_reason": "If some_condition() is true, the function returns None without closing the connection.",
+      "llm_ms": 2715.97,
+      "llm_prompt_tokens": 263,
+      "llm_completion_tokens": 126,
+      "llm_total_tokens": 389
+    },
+    {
+      "name": "safe_explicit",
+      "expected": "safe",
+      "complexity": {
+        "loc": 6,
+        "max_depth": 0,
+        "branches": 0,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "safe",
+      "codegate_leaks": 0,
+      "codegate_ms": 0.0,
+      "llm_verdict": "safe",
+      "llm_confidence": "definite",
+      "llm_reason": "The file is closed in a finally block, ensuring cleanup on all paths after successful open.",
+      "llm_ms": 2063.76,
+      "llm_prompt_tokens": 236,
+      "llm_completion_tokens": 110,
+      "llm_total_tokens": 346
+    },
+    {
+      "name": "safe_with",
+      "expected": "safe",
+      "complexity": {
+        "loc": 3,
+        "max_depth": 0,
+        "branches": 0,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "safe",
+      "codegate_leaks": 0,
+      "codegate_ms": 0.0,
+      "llm_verdict": "safe",
+      "llm_confidence": "definite",
+      "llm_reason": "The with statement guarantees the file is closed on all paths, including the return.",
+      "llm_ms": 2337.98,
+      "llm_prompt_tokens": 227,
+      "llm_completion_tokens": 106,
+      "llm_total_tokens": 333
+    },
+    {
+      "name": "safe_multiple",
+      "expected": "safe",
+      "complexity": {
+        "loc": 4,
+        "max_depth": 0,
+        "branches": 0,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "safe",
+      "codegate_leaks": 0,
+      "codegate_ms": 0.0,
+      "llm_verdict": "safe",
+      "llm_confidence": "definite",
+      "llm_reason": "Both files are opened using context managers, which guarantee closure on all paths including returns and exceptions.",
+      "llm_ms": 3180.5,
+      "llm_prompt_tokens": 253,
+      "llm_completion_tokens": 136,
+      "llm_total_tokens": 389
+    },
+    {
+      "name": "safe_loop",
+      "expected": "safe",
+      "complexity": {
+        "loc": 6,
+        "max_depth": 0,
+        "branches": 0,
+        "loops": 1,
+        "functions": 1
+      },
+      "codegate_verdict": "safe",
+      "codegate_leaks": 0,
+      "codegate_ms": 0.0,
+      "llm_verdict": "safe",
+      "llm_confidence": "definite",
+      "llm_reason": "The with statement guarantees file closure on all paths.",
+      "llm_ms": 2597.52,
+      "llm_prompt_tokens": 244,
+      "llm_completion_tokens": 146,
+      "llm_total_tokens": 390
+    },
+    {
+      "name": "nightmare",
+      "expected": "leak",
+      "complexity": {
+        "loc": 15,
+        "max_depth": 0,
+        "branches": 3,
+        "loops": 1,
+        "functions": 1
+      },
+      "codegate_verdict": "leak",
+      "codegate_leaks": 1,
+      "codegate_ms": 0.0,
+      "llm_verdict": "leak",
+      "llm_confidence": "definite",
+      "llm_reason": "File handles are not closed on early return, continue, or exception paths.",
+      "llm_ms": 3919.6,
+      "llm_prompt_tokens": 285,
+      "llm_completion_tokens": 304,
+      "llm_total_tokens": 589
+    },
+    {
+      "name": "safe_alias",
+      "expected": "safe",
+      "complexity": {
+        "loc": 5,
+        "max_depth": 0,
+        "branches": 0,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "safe",
+      "codegate_leaks": 0,
+      "codegate_ms": 0.0,
+      "llm_verdict": "safe",
+      "llm_confidence": "definite",
+      "llm_reason": "The file object is closed via its alias g on all paths before returning.",
+      "llm_ms": 3428.39,
+      "llm_prompt_tokens": 232,
+      "llm_completion_tokens": 252,
+      "llm_total_tokens": 484
+    },
+    {
+      "name": "safe_try_finally_return",
+      "expected": "safe",
+      "complexity": {
+        "loc": 6,
+        "max_depth": 0,
+        "branches": 0,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "safe",
+      "codegate_leaks": 0,
+      "codegate_ms": 0.0,
+      "llm_verdict": "safe",
+      "llm_confidence": "definite",
+      "llm_reason": "The finally block guarantees f.close() executes on all paths after successful open.",
+      "llm_ms": 5357.89,
+      "llm_prompt_tokens": 236,
+      "llm_completion_tokens": 115,
+      "llm_total_tokens": 351
+    },
+    {
+      "name": "returned_resource",
+      "expected": "potential",
+      "complexity": {
+        "loc": 3,
+        "max_depth": 0,
+        "branches": 0,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "safe",
+      "codegate_leaks": 0,
+      "codegate_ms": 0.0,
+      "llm_verdict": "safe",
+      "llm_confidence": "definite",
+      "llm_reason": "The file object is returned to the caller, transferring ownership, so no leak occurs within the function.",
+      "llm_ms": 7071.46,
+      "llm_prompt_tokens": 221,
+      "llm_completion_tokens": 494,
+      "llm_total_tokens": 715
+    },
+    {
+      "name": "second_open_raises",
+      "expected": "leak",
+      "complexity": {
+        "loc": 6,
+        "max_depth": 0,
+        "branches": 0,
+        "loops": 0,
+        "functions": 1
+      },
+      "codegate_verdict": "leak",
+      "codegate_leaks": 2,
+      "codegate_ms": 0.0,
+      "llm_verdict": "leak",
+      "llm_confidence": "definite",
+      "llm_reason": "If open(path2) raises an exception, f1 is never closed because f1.close() is not reached.",
+      "llm_ms": 2672.12,
+      "llm_prompt_tokens": 249,
+      "llm_completion_tokens": 187,
+      "llm_total_tokens": 436
+    }
+  ],
+  "metrics": {
+    "codegate": {
+      "tp": 11,
+      "tn": 7,
+      "fp": 0,
+      "fn": 1,
+      "precision": 1.0,
+      "recall": 0.917,
+      "f1": 0.957,
+      "accuracy": 0.947
+    },
+    "llm": {
+      "tp": 12,
+      "tn": 7,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0
+    }
+  },
+  "tokens": {
+    "llm_total": {
+      "prompt": 4730,
+      "completion": 4067,
+      "total": 8797
+    },
+    "codegate_llm_tokens": 0,
+    "saved_tokens": 8797
+  },
+  "cost": {
+    "llm_estimated_usd": 0.0031,
+    "codegate_usd": 0.0,
+    "saved_usd": 0.0031
+  },
+  "llm_errors": 0
+}

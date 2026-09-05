@@ -3,3 +3,7 @@ networkx
 astor
 astunparse
 graphviz
+
+[ensemble]
+semgrep>=1.60
+ruff>=0.4

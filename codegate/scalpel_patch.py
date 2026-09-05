@@ -39,10 +39,66 @@ def _ensure_scalpel_importable() -> None:
 
 _ensure_scalpel_importable()
 
-from scalpel.cfg.builder import CFGBuilder  # noqa: E402
+from scalpel.cfg.builder import CFGBuilder, merge_exitcases  # noqa: E402
 from scalpel.cfg.model import Block, CFG  # noqa: E402
 
 _PATCHED = False
+
+
+def _patched_clean_cfg(self, block: "Block", visited: list):
+    """Fixed clean_cfg — keeps genuine terminal exits, drops dead code.
+
+    Scalpel's original removes empty tail blocks (function falling off the end
+    after an `if`), which DELETES the fall-through path. That made `def h(f):
+    if x: f.close()` look like it always closes. Fix: an empty block with no
+    exits but with predecessors is a genuine function exit — keep it.
+
+    ALSO: blocks created after `return`/`raise` are DEAD (unreachable). They
+    must never be merged into the surrounding CFG — otherwise a `return` inside
+    an except handler appears to fall through to the after-try block, hiding
+    real leaks. Dead blocks are tracked via _dead_block_ids.
+    """
+    if block.id in visited:
+        return
+    visited.append(block.id)
+
+    # Dead code after return/raise: sever entirely, never merge.
+    if getattr(self, "_dead_block_ids", None) and block.id in self._dead_block_ids:
+        for pred in list(block.predecessors):
+            if pred in pred.source.exits:
+                pred.source.exits.remove(pred)
+        block.predecessors = []
+        block.exits = []
+        return
+
+    if block.is_empty() and not block.exits and block.predecessors:
+        # terminal exit node: fall off the end of the function. Keep it.
+        if block not in self.cfg.finalblocks:
+            self.cfg.finalblocks.append(block)
+        for pred in list(block.predecessors):
+            self.clean_cfg(pred.source, visited)
+        return
+
+    # Original Scalpel logic for middle empty blocks (merge around them).
+    if block.is_empty():
+        for pred in block.predecessors:
+            for exit in block.exits:
+                self.add_exit(
+                    pred.source,
+                    exit.target,
+                    merge_exitcases(pred.exitcase, exit.exitcase),
+                )
+                if exit in exit.target.predecessors:
+                    exit.target.predecessors.remove(exit)
+            if pred in pred.source.exits:
+                pred.source.exits.remove(pred)
+        block.predecessors = []
+        for exit in block.exits[:]:
+            self.clean_cfg(exit.target, visited)
+        block.exits = []
+    else:
+        for exit in block.exits[:]:
+            self.clean_cfg(exit.target, visited)
 
 
 def _patched_visit_Try(self, node: ast.Try):
@@ -65,7 +121,10 @@ def _patched_visit_Try(self, node: ast.Try):
     handler_blocks = [self.new_block() for _ in range(n_handlers)]
     for hb in handler_blocks:
         self.add_exit(self.current_block, hb)
-        self.add_exit(hb, final_block)
+        # NOTE: do NOT pre-link hb -> final_block here. A handler that ends in
+        # return/raise must not fall through to the after-try/finally code.
+        # The fall-through edge is added after visiting, only if the handler
+        # did not terminate (see the guarded add_exit below).
 
     # second set (original code duplicated this — keep behavior but fix bug)
     after_try_block2 = self.new_block()
@@ -94,8 +153,12 @@ def _patched_visit_Try(self, node: ast.Try):
     for i in range(n_handlers):
         self.current_block = handler_blocks[i]
         self.visit(node.handlers[i])
-        if not self.current_block.exits:
-            self.add_exit(self.current_block, after_handlers_and_else)
+        # Fall through to final_block ONLY if the handler did not terminate
+        # (return/raise). A dead current block means the handler returned/raised.
+        if not self.current_block.exits and not (
+            hasattr(self, "_dead_block_ids") and self.current_block.id in self._dead_block_ids
+        ):
+            self.add_exit(self.current_block, final_block)
 
     # FIX: guard for when there is no finally
     if len(node.finalbody) > 0:
@@ -116,14 +179,24 @@ def _patched_visit_Try(self, node: ast.Try):
 def _patched_visit_Return(self, node: ast.Return):
     self.add_statement(self.current_block, node)
     self.cfg.finalblocks.append(self.current_block)
-    # Don't leave phantom empty block that pollutes predecessors.
-    # Instead create new block but mark it as dead (will be cleaned).
-    # Original code: self.current_block = self.new_block()
-    # We still need a new block so subsequent statements don't get added to the return block,
-    # but we ensure its predecessors don't leak via clean_cfg.
+    # New block after return is DEAD code: statements after it are unreachable.
+    # Track it so clean_cfg severs it instead of merging it back into the graph
+    # (otherwise a `return` in an except handler looks like it falls through
+    # to the after-try block, hiding real leaks).
+    if not hasattr(self, "_dead_block_ids"):
+        self._dead_block_ids = set()
     new_block = self.new_block()
-    # Do NOT add exit from return block to new_block — return is terminal.
-    # The new_block is just "dead code" start.
+    self._dead_block_ids.add(new_block.id)
+    self.current_block = new_block
+
+
+def _patched_visit_Raise(self, node: ast.Raise):
+    self.add_statement(self.current_block, node)
+    self.cfg.finalblocks.append(self.current_block)
+    if not hasattr(self, "_dead_block_ids"):
+        self._dead_block_ids = set()
+    new_block = self.new_block()
+    self._dead_block_ids.add(new_block.id)
     self.current_block = new_block
 
 
@@ -133,6 +206,8 @@ def apply_patches() -> None:
         return
     CFGBuilder.visit_Try = _patched_visit_Try
     CFGBuilder.visit_Return = _patched_visit_Return
+    CFGBuilder.visit_Raise = _patched_visit_Raise
+    CFGBuilder.clean_cfg = _patched_clean_cfg
     _PATCHED = True
 
 

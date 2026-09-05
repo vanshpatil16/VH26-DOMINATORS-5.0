@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import VideoIntro from "../components/VideoIntro";
 import PinnedCardsSection from "../components/PinnedCardsSection";
+import PricingSection from "../components/PricingSection";
 import { ParallaxComponent } from "../components/ui/parallax-scrolling";
 import AuthModal from "../components/AuthModal";
 import type { CSSProperties } from "react";
@@ -632,6 +633,8 @@ export default function Home() {
           </div>
           <div className="shell build-board-wrap"><BuildReviewBoard /></div>
         </section>
+
+        <PricingSection onSelectPlan={() => handleOpenAuth("signup")} />
 
         <ParallaxComponent />
 

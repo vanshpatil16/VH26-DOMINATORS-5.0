@@ -283,21 +283,21 @@ export default function LeakReportModal({ isOpen, onClose, owner, repo, branch =
     >
       <div
         id="report-modal-card"
-        className="relative w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl bg-[#09090d] border border-[#1e2130] shadow-2xl shadow-black/60 overflow-hidden font-poppins"
+        className="relative w-full max-w-4xl max-h-[92vh] flex flex-col rounded-xl bg-[#0d0f14] border border-white/[0.08] shadow-2xl overflow-hidden font-sans"
       >
         {/* ── Header ── */}
-        <div id="report-header" className="relative flex-shrink-0 bg-[#0b0c14] border-b border-[#1e2130] px-6 py-5">
+        <div id="report-header" className="relative flex-shrink-0 bg-[#13161f] border-b border-white/[0.06] px-5 py-4">
           {/* Close */}
           <button
             onClick={onClose}
-            className="print:hidden absolute top-4 right-4 p-2 rounded-lg text-zinc-500 hover:text-white hover:bg-white/8 transition-all"
+            className="print:hidden absolute top-3.5 right-3.5 p-1 rounded-md text-zinc-500 hover:text-white hover:bg-white/10 transition-all"
           >
             <X className="w-4 h-4" />
           </button>
 
-          <div className="flex items-center gap-5 pr-10">
+          <div className="flex items-center gap-4 pr-8">
             {/* Icon */}
-            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 rounded-md bg-rose-500/10 border border-rose-500/25 flex items-center justify-center shrink-0">
               <ShieldAlert className="w-5 h-5 text-rose-400" />
             </div>
 

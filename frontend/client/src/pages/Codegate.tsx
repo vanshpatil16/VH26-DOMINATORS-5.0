@@ -13,7 +13,7 @@ import { Link } from "wouter";
 import {
   ArrowLeft, Play, Loader2, FileCode2, RotateCcw, ShieldCheck, ScrollText,
   Network, AudioWaveform, Wand2, TriangleAlert, Upload, X, Scale, Sparkles,
-  Zap, Cpu, CheckCircle2, Code2, Terminal, Layers
+  Zap, Cpu, CheckCircle2, Code2, Terminal, Layers, BookOpen
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DEMOS, runCodegateAnalysis, type CodegateResult } from "@/lib/codegate";
@@ -22,6 +22,7 @@ import TrajectoryTab from "@/components/codegate/TrajectoryTab";
 import AstTreeTab from "@/components/codegate/AstTreeTab";
 import CfgGraphTab from "@/components/codegate/CfgGraphTab";
 import EnsembleTab from "@/components/codegate/EnsembleTab";
+import KnowledgeBaseTab from "@/components/codegate/KnowledgeBaseTab";
 
 interface LoadedFile {
   name: string;
@@ -119,92 +120,91 @@ export default function Codegate() {
   };
 
   return (
-    <div className="min-h-screen bg-[#07080a] text-zinc-100 font-poppins selection:bg-purple-500/30 selection:text-purple-200 p-4 md:p-8 space-y-6">
+    <div className="min-h-screen bg-[#08090a] text-zinc-100 font-sans selection:bg-indigo-500/30 selection:text-indigo-200 p-4 md:p-6 space-y-5">
       {/* ── Top Header Navigation Bar ── */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#1c1f28]">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
         <div className="flex items-center gap-4">
           <Link
             to="/dashboard"
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#0d0e12] border border-[#1c1f28] hover:border-purple-500/50 hover:bg-[#13151c] text-zinc-400 hover:text-white transition-all duration-200 text-xs font-medium group shadow-sm shadow-black/40"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#0d0f14] border border-white/[0.08] hover:border-indigo-500/40 hover:bg-[#13161f] text-zinc-400 hover:text-white transition-all duration-150 text-xs font-medium group shadow-sm"
           >
-            <ArrowLeft className="w-4 h-4 text-zinc-400 group-hover:-translate-x-0.5 transition-transform" />
+            <ArrowLeft className="w-3.5 h-3.5 text-zinc-400 group-hover:-translate-x-0.5 transition-transform" />
             <span>Dashboard</span>
           </Link>
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shadow-sm shadow-emerald-950/50">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <div className="w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               </div>
-              <h1 className="text-xl md:text-2xl font-semibold text-white tracking-tight">
-                CodeGate
+              <h1 className="text-lg md:text-xl font-bold text-white tracking-tight">
+                CodeGate <span className="text-zinc-500 font-normal text-xs ml-1">Analyzer</span>
               </h1>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[10px] font-mono font-medium tracking-wide">
-                <Sparkles className="w-3 h-3 text-purple-400" /> Path-Sensitive Static Suite
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-[10px] font-mono font-medium tracking-wide">
+                <Sparkles className="w-3 h-3 text-indigo-400" /> Static CFG Analysis
               </span>
             </div>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Scalpel CFG path evaluation, alias tracking, and LibCST auto-fix previews
+              Path-sensitive resource leak analysis, alias tracking, and CST auto-fix engine
             </p>
           </div>
         </div>
 
         {/* Live Execution Telemetry Bar */}
         {result ? (
-          <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0c0d12] border border-[#1e2230] text-xs font-mono shadow-inner shadow-black/60">
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300">
-              <Zap className="w-3 h-3 text-purple-400" />
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#0d0f14] border border-white/[0.08] text-xs font-mono shadow-sm">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">
+              <Zap className="w-3 h-3 text-indigo-400" />
               <span>{result.summary.acquires} acquires</span>
             </div>
             <span className="text-zinc-700">•</span>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-300">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-300">
               <Network className="w-3 h-3 text-cyan-400" />
               <span>{result.summary.functionsAnalyzed} CFGs</span>
             </div>
             <span className="text-zinc-700">•</span>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300">
               <Layers className="w-3 h-3 text-amber-400" />
               <span>{result.summary.trajectorySteps} steps ({result.summary.analysisMs.toFixed(0)}ms)</span>
             </div>
             <span className="text-zinc-700">•</span>
-            <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg border font-semibold ${
-              result.summary.leakCount > 0
-                ? "bg-red-500/10 border-red-500/40 text-red-400 animate-pulse"
-                : "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
-            }`}>
+            <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded border font-semibold ${result.summary.leakCount > 0
+                ? "bg-red-500/10 border-red-500/30 text-red-400 animate-pulse"
+                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+              }`}>
               {result.summary.leakCount > 0 ? (
                 <>
-                  <TriangleAlert className="w-3.5 h-3.5 text-red-400" />
+                  <TriangleAlert className="w-3 h-3 text-red-400" />
                   <span>{result.summary.leakCount} leak{result.summary.leakCount > 1 ? "s" : ""}</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                   <span>Clean</span>
                 </>
               )}
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2 text-xs text-zinc-500 font-mono">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>Ready for analysis</span>
+          <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Ready for scan</span>
           </div>
         )}
       </header>
 
       {/* ── Main Workspace Grid ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-5 items-start">
         {/* ── Left Control & Editor Column ── */}
-        <div className="space-y-4 lg:sticky lg:top-6">
+        <div className="space-y-3.5 lg:sticky lg:top-6">
           {/* Preset Demos Selector */}
-          <div className="rounded-2xl bg-[#0c0d12] border border-[#1c1f28] p-3.5 space-y-2.5 shadow-md shadow-black/50">
+          <div className="rounded-md bg-[#0d0f14] border border-white/[0.08] p-3 space-y-2 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Code2 className="w-3.5 h-3.5 text-purple-400" /> Sample Test Suites
+                <Code2 className="w-3.5 h-3.5 text-indigo-400" /> Sample Test Suites
               </span>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-[11px] font-medium text-emerald-300 hover:border-emerald-500/70 hover:bg-emerald-500/20 transition-all duration-200 shadow-sm"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-[11px] font-medium text-emerald-300 hover:border-emerald-500/50 hover:bg-emerald-500/20 transition-all shadow-sm"
                 title="Upload .py files"
               >
                 <Upload className="w-3 h-3" />
@@ -227,11 +227,10 @@ export default function Codegate() {
                 <button
                   key={d.name}
                   onClick={() => pickDemo(i)}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 shadow-sm ${
-                    activeFile.name === d.filename && activeFile.code === d.code
-                      ? "bg-purple-600/25 border-purple-500/60 text-purple-200 font-semibold shadow-purple-950/40"
-                      : "bg-[#11131a] border-[#1f2330] text-zinc-400 hover:border-purple-500/30 hover:text-zinc-200 hover:bg-[#161824]"
-                  }`}
+                  className={`px-2.5 py-1 rounded-md border text-xs font-medium transition-all duration-150 ${activeFile.name === d.filename && activeFile.code === d.code
+                      ? "bg-indigo-500/20 border-indigo-500/50 text-indigo-200 font-semibold"
+                      : "bg-[#13161f] border-white/[0.06] text-zinc-400 hover:border-white/[0.12] hover:text-zinc-200"
+                    }`}
                 >
                   {d.name}
                 </button>
@@ -241,18 +240,17 @@ export default function Codegate() {
 
           {/* Active Open File Tabs */}
           {files.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1">
+            <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1">
               {files.map((f, i) => (
                 <span
                   key={`${f.name}-${i}`}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-mono transition-all duration-200 cursor-pointer shrink-0 shadow-sm ${
-                    i === activeIdx
-                      ? "bg-purple-950/40 border-purple-500/60 text-purple-200 font-medium"
-                      : "bg-[#0d0e12] border-[#1c1f28] text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 hover:bg-white/5"
-                  }`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-mono transition-all duration-150 cursor-pointer shrink-0 ${i === activeIdx
+                      ? "bg-indigo-950/40 border-indigo-500/50 text-indigo-200 font-medium"
+                      : "bg-[#0d0f14] border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/[0.12]"
+                    }`}
                   onClick={() => { setActiveIdx(i); setResult(null); }}
                 >
-                  <FileCode2 className={`w-3.5 h-3.5 ${i === activeIdx ? "text-purple-400" : "text-zinc-500"}`} />
+                  <FileCode2 className={`w-3.5 h-3.5 ${i === activeIdx ? "text-indigo-400" : "text-zinc-500"}`} />
                   <span>{f.name}</span>
                   {files.length > 1 && (
                     <button
@@ -270,9 +268,8 @@ export default function Codegate() {
 
           {/* Code Editor Window */}
           <div
-            className={`rounded-2xl border bg-[#0a0b0e] overflow-hidden transition-all duration-200 shadow-xl shadow-black/80 ${
-              dragOver ? "border-purple-500/60 bg-purple-500/5 ring-2 ring-purple-500/20" : "border-[#1c1f28]"
-            }`}
+            className={`rounded-md border bg-[#0d0f14] overflow-hidden transition-all duration-150 ${dragOver ? "border-indigo-500/60 bg-indigo-500/5 ring-1 ring-indigo-500/30" : "border-white/[0.08]"
+              }`}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={(e) => {
@@ -282,7 +279,7 @@ export default function Codegate() {
             }}
           >
             {/* Editor Window Bar */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1c1f28] bg-[#0c0d12]">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.06] bg-[#13161f]">
               <div className="flex items-center gap-2">
                 <div className="flex gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500/40" />
@@ -302,7 +299,7 @@ export default function Codegate() {
               </div>
               <button
                 onClick={() => { updateCode(""); setResult(null); }}
-                className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 rounded-md hover:bg-white/5"
+                className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 rounded hover:bg-white/5"
                 title="Clear code"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -314,22 +311,22 @@ export default function Codegate() {
               value={activeFile.code}
               onChange={(e) => updateCode(e.target.value)}
               spellCheck={false}
-              className="w-full h-[360px] bg-transparent p-4 font-mono text-xs leading-relaxed text-zinc-200 focus:outline-none resize-y selection:bg-purple-500/40 selection:text-purple-100 custom-scrollbar"
+              className="w-full h-[360px] bg-transparent p-3.5 font-mono text-xs leading-relaxed text-zinc-200 focus:outline-none resize-y selection:bg-indigo-500/30 selection:text-indigo-100 custom-scrollbar"
               placeholder="# Paste Python source code here, or drag & drop .py files…"
             />
           </div>
 
           {/* Analysis Config & Run Action Bar */}
-          <div className="rounded-2xl bg-[#0c0d12] border border-[#1c1f28] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
-            <div className="flex flex-col gap-2">
+          <div className="rounded-md bg-[#0d0f14] border border-white/[0.08] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div className="flex flex-col gap-1.5">
               <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={autoFix}
                   onChange={(e) => setAutoFix(e.target.checked)}
-                  className="rounded border-[#2a2f45] bg-[#07080a] text-purple-500 focus:ring-purple-500/30 accent-purple-500"
+                  className="rounded border-white/20 bg-black/40 text-indigo-500 focus:ring-indigo-500/30 accent-indigo-500"
                 />
-                <Wand2 className="w-3.5 h-3.5 text-purple-400" />
+                <Wand2 className="w-3.5 h-3.5 text-indigo-400" />
                 <span>LibCST auto-fix preview</span>
               </label>
               <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer select-none">
@@ -337,7 +334,7 @@ export default function Codegate() {
                   type="checkbox"
                   checked={useEnsemble}
                   onChange={(e) => setUseEnsemble(e.target.checked)}
-                  className="rounded border-[#2a2f45] bg-[#07080a] text-emerald-500 focus:ring-emerald-500/30 accent-emerald-500"
+                  className="rounded border-white/20 bg-black/40 text-emerald-500 focus:ring-emerald-500/30 accent-emerald-500"
                 />
                 <Scale className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Ensemble verifier (ruff + CodeGate)</span>
@@ -347,12 +344,12 @@ export default function Codegate() {
             <button
               onClick={() => void run()}
               disabled={running || !activeFile.code.trim()}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-purple-950/60 active:scale-95 shrink-0"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm active:scale-95 shrink-0"
             >
               {running ? (
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
               ) : (
-                <Play className="w-4 h-4 text-white fill-white" />
+                <Play className="w-3.5 h-3.5 text-white fill-white" />
               )}
               <span>{running ? "Analyzing…" : "Run Analysis"}</span>
             </button>
@@ -360,12 +357,12 @@ export default function Codegate() {
 
           {/* Backend Error Display */}
           {error && (
-            <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-xs text-red-300 space-y-2 shadow-lg shadow-red-950/30">
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300 space-y-2 shadow-sm">
               <div className="flex items-center gap-2 font-semibold text-red-400">
                 <TriangleAlert className="w-4 h-4 shrink-0 text-red-400" />
                 <span>Analyzer Failure</span>
               </div>
-              <pre className="p-3 rounded-xl bg-black/60 border border-red-500/20 text-[11px] font-mono text-red-200 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap custom-scrollbar">
+              <pre className="p-2.5 rounded bg-black/60 border border-red-500/20 text-[11px] font-mono text-red-200 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap custom-scrollbar">
                 {error}
               </pre>
             </div>
@@ -375,18 +372,18 @@ export default function Codegate() {
         {/* ── Right Results & Visualizations Panel ── */}
         <div className="w-full">
           {!result && !running && (
-            <div className="flex flex-col items-center justify-center py-28 gap-4 text-center rounded-3xl border border-dashed border-[#1c1f28] bg-[#0c0d12]/50 p-8">
-              <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shadow-inner">
-                <AudioWaveform className="w-7 h-7 text-purple-400" />
+            <div className="flex flex-col items-center justify-center py-24 gap-3 text-center rounded-md border border-dashed border-white/[0.08] bg-[#0d0f14]/50 p-6">
+              <div className="w-12 h-12 rounded-md bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                <AudioWaveform className="w-6 h-6 text-indigo-400" />
               </div>
               <div className="max-w-md space-y-1">
-                <h3 className="text-base font-semibold text-white">Ready to inspect Python code</h3>
+                <h3 className="text-sm font-semibold text-white">Ready to inspect Python code</h3>
                 <p className="text-xs text-zinc-400">
-                  Select a sample snippet or paste custom source code, then click <strong className="text-zinc-200 font-medium">Run Analysis</strong> to view leak cards, trajectory traces, CFG control flow, and AST tree visualizations.
+                  Select a sample snippet or paste custom source code, then click <strong className="text-zinc-200 font-medium">Run Analysis</strong> to view leak cards, trajectory traces, CFG flow, and AST tree visualizations.
                 </p>
               </div>
               <div className="flex items-center gap-3 text-[11px] font-mono text-zinc-500 pt-2">
-                <span className="flex items-center gap-1"><Cpu className="w-3.5 h-3.5 text-purple-400" /> Scalpel CFG</span>
+                <span className="flex items-center gap-1"><Cpu className="w-3.5 h-3.5 text-indigo-400" /> Scalpel CFG</span>
                 <span>•</span>
                 <span className="flex items-center gap-1"><Terminal className="w-3.5 h-3.5 text-emerald-400" /> LibCST Fix</span>
                 <span>•</span>
@@ -396,26 +393,26 @@ export default function Codegate() {
           )}
 
           {running && (
-            <div className="flex flex-col items-center justify-center py-28 gap-4 rounded-3xl border border-[#1c1f28] bg-[#0c0d12] p-8 text-zinc-400">
-              <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
+            <div className="flex flex-col items-center justify-center py-24 gap-3 rounded-md border border-white/[0.08] bg-[#0d0f14] p-6 text-zinc-400">
+              <Loader2 className="w-7 h-7 animate-spin text-indigo-400" />
               <div className="text-center space-y-1">
-                <p className="text-sm font-medium text-white">Evaluating execution paths…</p>
-                <p className="text-xs font-mono text-zinc-500">Constructing Scalpel CFG blocks & tracing alias allocations</p>
+                <p className="text-xs font-medium text-white">Evaluating execution paths…</p>
+                <p className="text-[11px] font-mono text-zinc-500">Constructing Scalpel CFG blocks & tracing alias allocations</p>
               </div>
             </div>
           )}
 
           {result && (
             <Tabs defaultValue="report" className="w-full">
-              <TabsList className="bg-[#0c0d12] border border-[#1c1f28] p-1 rounded-2xl mb-5 flex flex-wrap gap-1">
+              <TabsList className="bg-[#0d0f14] border border-white/[0.08] p-1 rounded-md mb-4 flex flex-wrap gap-1">
                 <TabsTrigger
                   value="report"
-                  className="data-[state=active]:bg-purple-600/30 data-[state=active]:border-purple-500/50 data-[state=active]:text-purple-100 text-zinc-400 hover:text-white text-xs font-medium gap-2 transition-all px-4 py-2 rounded-xl border border-transparent"
+                  className="data-[state=active]:bg-indigo-600/30 data-[state=active]:border-indigo-500/40 data-[state=active]:text-indigo-100 text-zinc-400 hover:text-white text-xs font-medium gap-2 transition-all px-3 py-1.5 rounded border border-transparent"
                 >
-                  <ScrollText className="w-3.5 h-3.5 text-purple-400" />
+                  <ScrollText className="w-3.5 h-3.5 text-indigo-400" />
                   <span>Report</span>
                   {result.summary.leakCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-red-500/20 border border-red-500/40 text-red-400 text-[10px] font-mono font-semibold">
+                    <span className="px-1.5 py-0.2 rounded bg-red-500/20 border border-red-500/40 text-red-400 text-[10px] font-mono font-semibold">
                       {result.summary.leakCount}
                     </span>
                   )}
@@ -423,18 +420,18 @@ export default function Codegate() {
 
                 <TabsTrigger
                   value="trajectory"
-                  className="data-[state=active]:bg-purple-600/30 data-[state=active]:border-purple-500/50 data-[state=active]:text-purple-100 text-zinc-400 hover:text-white text-xs font-medium gap-2 transition-all px-4 py-2 rounded-xl border border-transparent"
+                  className="data-[state=active]:bg-indigo-600/30 data-[state=active]:border-indigo-500/40 data-[state=active]:text-indigo-100 text-zinc-400 hover:text-white text-xs font-medium gap-2 transition-all px-3 py-1.5 rounded border border-transparent"
                 >
                   <AudioWaveform className="w-3.5 h-3.5 text-amber-400" />
                   <span>Trajectory</span>
-                  <span className="px-1.5 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 text-[10px] font-mono">
+                  <span className="px-1.5 py-0.2 rounded bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-[10px] font-mono">
                     {result.summary.trajectorySteps}
                   </span>
                 </TabsTrigger>
 
                 <TabsTrigger
                   value="ast"
-                  className="data-[state=active]:bg-purple-600/30 data-[state=active]:border-purple-500/50 data-[state=active]:text-purple-100 text-zinc-400 hover:text-white text-xs font-medium gap-2 transition-all px-4 py-2 rounded-xl border border-transparent"
+                  className="data-[state=active]:bg-indigo-600/30 data-[state=active]:border-indigo-500/40 data-[state=active]:text-indigo-100 text-zinc-400 hover:text-white text-xs font-medium gap-2 transition-all px-3 py-1.5 rounded border border-transparent"
                 >
                   <FileCode2 className="w-3.5 h-3.5 text-cyan-400" />
                   <span>AST Tree</span>
@@ -442,20 +439,33 @@ export default function Codegate() {
 
                 <TabsTrigger
                   value="cfg"
-                  className="data-[state=active]:bg-purple-600/30 data-[state=active]:border-purple-500/50 data-[state=active]:text-purple-100 text-zinc-400 hover:text-white text-xs font-medium gap-2 transition-all px-4 py-2 rounded-xl border border-transparent"
+                  className="data-[state=active]:bg-indigo-600/30 data-[state=active]:border-indigo-500/40 data-[state=active]:text-indigo-100 text-zinc-400 hover:text-white text-xs font-medium gap-2 transition-all px-3 py-1.5 rounded border border-transparent"
                 >
                   <Network className="w-3.5 h-3.5 text-emerald-400" />
                   <span>CFG Flow</span>
                 </TabsTrigger>
 
+                <TabsTrigger
+                  value="kb"
+                  className="data-[state=active]:bg-indigo-600/30 data-[state=active]:border-indigo-500/40 data-[state=active]:text-indigo-100 text-zinc-400 hover:text-white text-xs font-medium gap-2 transition-all px-3 py-1.5 rounded border border-transparent"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Knowledge Base</span>
+                  {result.knowledgeBase && (
+                    <span className="px-1.5 py-0.2 rounded bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-[10px] font-mono">
+                      {result.knowledgeBase.matched.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+
                 {result.ensemble && (
                   <TabsTrigger
                     value="ensemble"
-                    className="data-[state=active]:bg-purple-600/30 data-[state=active]:border-purple-500/50 data-[state=active]:text-purple-100 text-zinc-400 hover:text-white text-xs font-medium gap-2 transition-all px-4 py-2 rounded-xl border border-transparent"
+                    className="data-[state=active]:bg-indigo-600/30 data-[state=active]:border-indigo-500/40 data-[state=active]:text-indigo-100 text-zinc-400 hover:text-white text-xs font-medium gap-2 transition-all px-3 py-1.5 rounded border border-transparent"
                   >
                     <Scale className="w-3.5 h-3.5 text-pink-400" />
                     <span>Ensemble</span>
-                    <span className="px-1.5 py-0.5 rounded-full bg-red-500/20 border border-red-500/40 text-red-400 text-[10px] font-mono">
+                    <span className="px-1.5 py-0.2 rounded bg-red-500/20 border border-red-500/40 text-red-400 text-[10px] font-mono">
                       {(result.ensemble.counts.confirmed_path_leak ?? 0) +
                         (result.ensemble.counts.confirmed_exception_unsafe ?? 0)}
                     </span>
@@ -474,6 +484,9 @@ export default function Codegate() {
               </TabsContent>
               <TabsContent value="cfg" className="focus:outline-none">
                 <CfgGraphTab functions={result.cfg.functions} />
+              </TabsContent>
+              <TabsContent value="kb" className="focus:outline-none">
+                <KnowledgeBaseTab kb={result.knowledgeBase} />
               </TabsContent>
               {result.ensemble && (
                 <TabsContent value="ensemble" className="focus:outline-none">

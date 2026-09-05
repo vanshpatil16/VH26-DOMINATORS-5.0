@@ -196,3 +196,35 @@ def test_exception_disabled():
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main([__file__, "-v"]))
+
+
+def test_try_except_handler_return_not_fallthrough():
+    """§15 regression: `return` inside an except handler must be TERMINAL —
+    it must not appear to fall through to the after-try close, hiding a leak."""
+    src = textwrap.dedent("""
+    def f(path):
+        handle = open(path)
+        try:
+            process(handle)
+        except Exception:
+            return None     # leaks handle; must not fall through to close
+        handle.close()
+    """)
+    leaks = analyze_source(src, filename="t.py", config=CodeGateConfig.default())
+    # must find something (definite in full-file context, potential in isolated)
+    assert len(leaks) > 0, f"expected a finding, got {leaks}"
+
+
+def test_second_open_raises_f1_leaks():
+    """§2: if the second open() raises, f1 leaks on that exceptional path."""
+    src = textwrap.dedent("""
+    def f(p1, p2):
+        f1 = open(p1)
+        f2 = open(p2)
+        f1.close()
+        f2.close()
+        return 1
+    """)
+    leaks = analyze_source(src, filename="t.py", config=CodeGateConfig.default())
+    flagged = {lk.var for lk in leaks}
+    assert "f1" in flagged, f"f1's exceptional leak should be reported: {leaks}"

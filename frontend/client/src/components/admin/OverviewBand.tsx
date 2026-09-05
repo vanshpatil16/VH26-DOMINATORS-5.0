@@ -64,136 +64,133 @@ export default function OverviewBand({
   const displayBuckets = timeFilter === "7D" ? buckets.slice(-7) : buckets;
 
   return (
-    <div className="space-y-6 font-poppins select-none">
-      {/* ── VIBRANT 4-CARD METRIC BAND (Alps High-Contrast Style) ── */}
+    <div className="space-y-5 font-sans select-none">
+      {/* ── 4-CARD METRIC BAND (Obsidian Console Style) ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* CARD 1: Confirmed Leaks (Vibrant Crimson Red) */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#e11d48] to-[#9f1239] p-5 text-white shadow-xl shadow-rose-950/40 transition-transform hover:-translate-y-1">
+        {/* CARD 1: Confirmed Leaks */}
+        <div className="relative overflow-hidden rounded-md bg-[#0d0f14] border border-white/[0.08] p-4 text-white shadow-sm transition-all hover:border-white/[0.15]">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-rose-100/90 font-mono">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 font-mono">
               Confirmed Leaks
             </span>
-            <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm">
-              <AlertOctagon className="w-4 h-4 text-white" />
+            <div className="w-7 h-7 rounded-md bg-red-500/10 border border-red-500/25 flex items-center justify-center">
+              <AlertOctagon className="w-3.5 h-3.5 text-red-400" />
             </div>
           </div>
 
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-4xl font-extrabold tracking-tight font-poppins">
+          <div className="mt-2.5 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold tracking-tight">
               {errors}
             </span>
-            <span className="inline-flex items-center space-x-1 text-xs font-medium bg-black/20 px-2.5 py-1 rounded-full text-rose-100 backdrop-blur-sm font-mono">
+            <span className="inline-flex items-center space-x-1 text-[10px] font-mono bg-red-500/10 border border-red-500/25 px-2 py-0.5 rounded text-red-300">
               {trendFlat ? (
                 <Minus className="w-3 h-3" />
               ) : trendUp ? (
-                <TrendingUp className="w-3 h-3 text-rose-200" />
+                <TrendingUp className="w-3 h-3 text-red-400" />
               ) : (
-                <TrendingDown className="w-3 h-3 text-emerald-200" />
+                <TrendingDown className="w-3 h-3 text-emerald-400" />
               )}
               <span>{trendFlat ? "0%" : `${trendUp ? "+" : ""}${delta.delta} vs Wk`}</span>
             </span>
           </div>
 
-          <p className="mt-2 text-xs text-rose-100/80 font-mono">
+          <p className="mt-1.5 text-xs text-zinc-400 font-mono">
             {errors > 0 ? "Requires CST with-block autofix" : "0 leaks confirmed"}
           </p>
 
-          {/* Mini Sparkline Bar Accent */}
-          <div className="mt-3 flex items-end space-x-1 h-3 opacity-60">
+          <div className="mt-2.5 flex items-end space-x-1 h-2.5 opacity-40">
             {[40, 70, 30, 90, 50, 80, 100].map((h, i) => (
-              <div key={i} className="flex-1 bg-white rounded-t-sm" style={{ height: `${h}%` }} />
+              <div key={i} className="flex-1 bg-red-400 rounded-t-sm" style={{ height: `${h}%` }} />
             ))}
           </div>
         </div>
 
-        {/* CARD 2: Exception Risks (Vibrant Royal Blue) */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#2563eb] to-[#1e40af] p-5 text-white shadow-xl shadow-blue-950/40 transition-transform hover:-translate-y-1">
+        {/* CARD 2: Exception Risks */}
+        <div className="relative overflow-hidden rounded-md bg-[#0d0f14] border border-white/[0.08] p-4 text-white shadow-sm transition-all hover:border-white/[0.15]">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-blue-100/90 font-mono">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 font-mono">
               Exception Risks
             </span>
-            <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm">
-              <AlertTriangle className="w-4 h-4 text-white" />
+            <div className="w-7 h-7 rounded-md bg-amber-500/10 border border-amber-500/25 flex items-center justify-center">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
             </div>
           </div>
 
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-4xl font-extrabold tracking-tight font-poppins">
+          <div className="mt-2.5 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold tracking-tight">
               {warnings}
             </span>
-            <span className="inline-flex items-center space-x-1 text-xs font-medium bg-black/20 px-2.5 py-1 rounded-full text-blue-100 backdrop-blur-sm font-mono">
+            <span className="inline-flex items-center space-x-1 text-[10px] font-mono bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 rounded text-amber-300">
               <TrendingUp className="w-3 h-3" />
               <span>{branchCount} Branches</span>
             </span>
           </div>
 
-          <p className="mt-2 text-xs text-blue-100/80 font-mono">
+          <p className="mt-1.5 text-xs text-zinc-400 font-mono">
             {warnings > 0 ? "Potential unhandled path leak" : "0 exception risks"}
           </p>
 
-          {/* Mini Sparkline Bar Accent */}
-          <div className="mt-3 flex items-end space-x-1 h-3 opacity-60">
+          <div className="mt-2.5 flex items-end space-x-1 h-2.5 opacity-40">
             {[60, 40, 80, 50, 70, 90, 65].map((h, i) => (
-              <div key={i} className="flex-1 bg-white rounded-t-sm" style={{ height: `${h}%` }} />
+              <div key={i} className="flex-1 bg-amber-400 rounded-t-sm" style={{ height: `${h}%` }} />
             ))}
           </div>
         </div>
 
-        {/* CARD 3: Repositories Monitored (Vibrant Warm Amber) */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#d97706] to-[#92400e] p-5 text-white shadow-xl shadow-amber-950/40 transition-transform hover:-translate-y-1">
+        {/* CARD 3: Repositories Monitored */}
+        <div className="relative overflow-hidden rounded-md bg-[#0d0f14] border border-white/[0.08] p-4 text-white shadow-sm transition-all hover:border-white/[0.15]">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-amber-100/90 font-mono">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 font-mono">
               Monitored Repos
             </span>
-            <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm">
-              <FolderGit2 className="w-4 h-4 text-white" />
+            <div className="w-7 h-7 rounded-md bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center">
+              <FolderGit2 className="w-3.5 h-3.5 text-indigo-400" />
             </div>
           </div>
 
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-4xl font-extrabold tracking-tight font-poppins">
+          <div className="mt-2.5 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold tracking-tight">
               {watchedRepos || repoCount}
             </span>
-            <span className="inline-flex items-center space-x-1 text-xs font-medium bg-black/20 px-2.5 py-1 rounded-full text-amber-100 backdrop-blur-sm font-mono">
+            <span className="inline-flex items-center space-x-1 text-[10px] font-mono bg-indigo-500/10 border border-indigo-500/25 px-2 py-0.5 rounded text-indigo-300">
               <span>{coverage}% CI Coverage</span>
             </span>
           </div>
 
-          <p className="mt-2 text-xs text-amber-100/80 font-mono">
+          <p className="mt-1.5 text-xs text-zinc-400 font-mono">
             {reposScanned} scanned with LeakGuard
           </p>
 
-          {/* Mini Sparkline Bar Accent */}
-          <div className="mt-3 flex items-end space-x-1 h-3 opacity-60">
+          <div className="mt-2.5 flex items-end space-x-1 h-2.5 opacity-40">
             {[30, 50, 70, 80, 60, 90, 85].map((h, i) => (
-              <div key={i} className="flex-1 bg-white rounded-t-sm" style={{ height: `${h}%` }} />
+              <div key={i} className="flex-1 bg-indigo-400 rounded-t-sm" style={{ height: `${h}%` }} />
             ))}
           </div>
         </div>
 
-        {/* CARD 4: Clean Code Score (Vibrant Emerald Green) */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#059669] to-[#065f46] p-5 text-white shadow-xl shadow-emerald-950/40 transition-transform hover:-translate-y-1">
+        {/* CARD 4: Clean Pass Rate */}
+        <div className="relative overflow-hidden rounded-md bg-[#0d0f14] border border-white/[0.08] p-4 text-white shadow-sm transition-all hover:border-white/[0.15]">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-100/90 font-mono">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 font-mono">
               Clean Pass Rate
             </span>
-            <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm">
-              <CheckCircle2 className="w-4 h-4 text-white" />
+            <div className="w-7 h-7 rounded-md bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             </div>
           </div>
 
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-4xl font-extrabold tracking-tight font-poppins">
+          <div className="mt-2.5 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold tracking-tight">
               {clean ? "100%" : `${Math.max(10, 100 - (errors * 15 + warnings * 5))}%`}
             </span>
-            <span className="inline-flex items-center space-x-1 text-xs font-medium bg-black/20 px-2.5 py-1 rounded-full text-emerald-100 backdrop-blur-sm font-mono">
-              <TrendingUp className="w-3 h-3 text-emerald-200" />
+            <span className="inline-flex items-center space-x-1 text-[10px] font-mono bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded text-emerald-300">
+              <TrendingUp className="w-3 h-3 text-emerald-400" />
               <span>Optimal</span>
             </span>
           </div>
 
-          <p className="mt-2 text-xs text-emerald-100/80 font-mono">
+          <p className="mt-1.5 text-xs text-zinc-400 font-mono">
             {clean ? "All branches clear of resource leaks" : `${errors + warnings} issues flagged`}
           </p>
 

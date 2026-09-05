@@ -47,6 +47,10 @@ class CodeGateConfig:
     # call) leaks the resource even though normal paths are safe.
     # The classic `f = open(p); f.read(); f.close()` without try/finally.
     exception_safety: bool = True
+    # Path to external API knowledge base resources.yaml
+    kb_path: str | None = None
+    # Minimum confidence threshold for auto-persisting LLM resolved API contracts
+    min_confidence: float = 0.85
 
     @classmethod
     def default(cls) -> "CodeGateConfig":

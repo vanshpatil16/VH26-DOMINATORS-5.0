@@ -114,8 +114,9 @@ def run_ci(targets: list[str], ensemble: bool = False, changed_only: bool = Fals
             return 1
 
     config = CodeGateConfig.default()
-    total_path_leaks = 0
+    total_definite = 0
     total_exception = 0
+    total_potential = 0
     annotations: list[str] = []
     summary_rows: list[tuple[str, int, str]] = []
 
@@ -125,7 +126,7 @@ def run_ci(targets: list[str], ensemble: bool = False, changed_only: bool = Fals
         except SyntaxError as e:
             annotations.append(_annotation("error", str(f), e.lineno or 1,
                                            "SyntaxError", e.msg))
-            total_path_leaks += 1
+            total_definite += 1
             continue
         except Exception as e:  # noqa: BLE001
             if not quiet:
@@ -133,13 +134,17 @@ def run_ci(targets: list[str], ensemble: bool = False, changed_only: bool = Fals
             continue
 
         for lk in leaks:
-            if lk.kind in ("path", "path+exception"):
-                level = "error"
-                total_path_leaks += 1
-            else:
-                level = "warning"
-                total_exception += 1
             title = f"CodeGate: resource leak in {lk.func}()"
+            # §32: only DEFINITE findings block CI. Potential/unknown findings
+            # are surfaced as warnings but never fail the build.
+            if lk.confidence == "definite":
+                total_definite += 1
+                level = "error"
+            else:
+                total_potential += 1
+                level = "warning"
+            if lk.kind == "exception":
+                total_exception += 1
             annotations.append(_annotation(level, str(f), lk.acquire_line, title, lk.message))
 
             if lk.exception_note:
@@ -161,8 +166,9 @@ def run_ci(targets: list[str], ensemble: bool = False, changed_only: bool = Fals
         print(f"\nCodeGate CI — scanned {len(files)} file(s)")
         for row in summary_rows:
             print(f"  ✗ {row[0]}:{row[1]} {row[2]}")
-        status = "PASSED" if total_path_leaks == 0 else "FAILED"
-        print(f"  {status}: {total_path_leaks} path leak(s), {total_exception} exception risk(s)")
+        status = "PASSED" if total_definite == 0 else "FAILED"
+        print(f"  {status}: {total_definite} definite leak(s), "
+              f"{total_exception} exception risk(s), {total_potential} potential (non-blocking)")
 
     # GitHub Step Summary output (renders rich table on PR Checks UI)
     import os
@@ -196,7 +202,7 @@ def run_ci(targets: list[str], ensemble: bool = False, changed_only: bool = Fals
         for a in annotations:
             print(a)
 
-    return 1 if total_path_leaks > 0 else 0
+    return 1 if total_definite > 0 else 0
 
 
 PRE_COMMIT_HOOK = """#!/bin/sh
