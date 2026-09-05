@@ -7,8 +7,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from .api_semantics import APISemanticsResolver
 from .config import CodeGateConfig, ResourceSpec
 from .imports import build_import_map, resolve_call_name
+from .knowledge_base import KnowledgeBase
 from .scalpel_patch import build_cfg, get_all_blocks_filtered
 
 
@@ -202,6 +204,10 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
       fixability: safe | unsafe (e.g. overwrite) | unknown (loops/try/transfer)
     """
     resources = config.resources
+    api_resolver = APISemanticsResolver(
+        kb=KnowledgeBase(kb_path=config.kb_path),
+        min_confidence=config.min_confidence,
+    )
     blocks = get_all_blocks_filtered(fcfg)
     if not blocks:
         return []
@@ -364,6 +370,37 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
                 path_evidence.setdefault(res_id, {"leaking": [], "safe": []})
                 continue
 
+            # 1.5) External API returning resource: var = external_library.get_file()
+            if isinstance(stmt, (ast.Assign, ast.AnnAssign)) and isinstance(stmt.value, ast.Call):
+                target_var = None
+                if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
+                    target_var = stmt.targets[0].id
+                elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+                    target_var = stmt.target.id
+
+                if target_var:
+                    cname = _call_name(stmt.value)
+                    if cname:
+                        resolved_cname = resolve_call_name(cname, import_map)
+                        if not any(r.matches_acquire(resolved_cname) for r in resources):
+                            is_local_func = (
+                                param_effects is not None
+                                and (resolved_cname in param_effects or cname in param_effects)
+                            )
+                            if not is_local_func:
+                                contract = api_resolver.resolve_call(resolved_cname, resource_type="FILE")
+                                if contract.behavior in ("RETURNS_RESOURCE", "CREATES_RESOURCE") or contract.ownership == "RETURN":
+                                    res_id = stmt.lineno
+                                    orig_res_id = res_id
+                                    counter = 0
+                                    while res_id in new_res:
+                                        counter += 1
+                                        res_id = orig_res_id * 1000 + counter
+                                    new_live[target_var] = res_id
+                                    new_res[res_id] = (target_var, resolved_cname, "close")
+                                    path_evidence.setdefault(res_id, {"leaking": [], "safe": []})
+                                    continue
+
             # 2) Alias:  y = x   where x is resource handle
             if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
                 lhs = stmt.targets[0].id
@@ -489,66 +526,84 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
                     for v in vars_to_remove:
                         del new_live[v]
 
-            # 3.5) Interprocedural call sites: helper(f). Known local callees
-            # are consulted via parameter effects; UNKNOWN external callees get
-            # the unknown-call policy (§16): the handle may be closed or may
-            # escape — record the uncertainty, never claim certainty.
-            if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call) \
-                    and isinstance(stmt.value.func, ast.Name) and param_effects is not None:
-                callee = stmt.value.func.id
-                callee_info = param_effects.get(callee)  # None => unknown external
-                if callee_info is None:
-                    # Unknown external callee (§16): the handle may be closed
-                    # inside it or may escape — record the uncertainty.
-                    for argnode in stmt.value.args:
-                        if isinstance(argnode, ast.Name) and argnode.id in new_live:
-                            _flags(new_live[argnode.id])["escaped_unknown"] = True
-                            _flags(new_live[argnode.id]).setdefault(
-                                "unknown_callees", set()).add(callee)
-                if callee_info:
-                    callee_params = callee_info.get("params", [])
-                    effects_map = callee_info.get("effects", {})
-                    for pos, argnode in enumerate(stmt.value.args):
-                        if not (isinstance(argnode, ast.Name) and argnode.id in new_live):
-                            continue
-                        param = callee_params[pos] if pos < len(callee_params) else None
-                        effect = effects_map.get(param, "unknown") if param else "unknown"
-                        res_id = new_live[argnode.id]
-                        if effect in ("releases", "escapes"):
-                            # helper closes the resource on all paths, or takes
-                            # ownership out (returns it) — fate decided, not a leak
-                            for v in [v for v, r in list(new_live.items()) if r == res_id]:
-                                del new_live[v]
-                        elif effect == "leaks":
-                            # helper leaks its parameter — propagate evidence here
-                            other_holders = [v for v, r in new_live.items() if r == res_id and v != argnode.id]
-                            if not other_holders:
-                                orig_var, acq_n, rel_n = new_res.get(res_id, (argnode.id, "?", "close"))
-                                if res_id not in found_leaks:
-                                    col = stmt.col_offset if hasattr(stmt, "col_offset") else 0
-                                    lk = Leak(
-                                        file=file_path, func=func_name, line=stmt.lineno, col=col,
-                                        var=orig_var, acquire=acq_n, release=rel_n,
-                                        message=(
-                                            f"Resource '{orig_var}' acquired at line {res_id} leaked: "
-                                            f"passed to '{callee}()' at line {stmt.lineno}, which never "
-                                            f"closes its parameter on some path inside it"
-                                        ),
-                                        acquire_line=res_id,
-                                    )
-                                    found_leaks[res_id] = _finalize(lk, res_id, f"leaked inside callee '{callee}()'")
-                                    path_evidence.setdefault(res_id, {"leaking": [], "safe": []})
-                                path_evidence[res_id]["leaking"].append(list(path) + [block.id])
-                                local_leaks.append(res_id)
-                                for v in [v for v, r in list(new_live.items()) if r == res_id]:
-                                    del new_live[v]
-                        else:
-                            # effect == "unknown" OR unknown external callee:
-                            # leave live (conservative) but record that the
-                            # resource may escape via an unknown callee —
-                            # at exit this downgrades DEFINITE -> POTENTIAL (§16)
-                            _flags(res_id)["escaped_unknown"] = True
-                            _flags(res_id).setdefault("unknown_callees", set()).add(callee)
+            # 3.5) Interprocedural and External API call sites: helper(f) or ext_lib.process(f)
+            call_node = None
+            if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
+                call_node = stmt.value
+            elif isinstance(stmt, (ast.Assign, ast.AnnAssign)) and isinstance(stmt.value, ast.Call):
+                call_node = stmt.value
+
+            if call_node is not None:
+                cname = _call_name(call_node)
+                if cname:
+                    resolved_cname = resolve_call_name(cname, import_map)
+                    is_local_func = (
+                        param_effects is not None
+                        and (resolved_cname in param_effects or cname in param_effects)
+                    )
+
+                    if is_local_func and param_effects is not None:
+                        callee_info = param_effects.get(resolved_cname) or param_effects.get(cname)
+                        if callee_info:
+                            callee_params = callee_info.get("params", [])
+                            effects_map = callee_info.get("effects", {})
+                            for pos, argnode in enumerate(call_node.args):
+                                if not (isinstance(argnode, ast.Name) and argnode.id in new_live):
+                                    continue
+                                param = callee_params[pos] if pos < len(callee_params) else None
+                                effect = effects_map.get(param, "unknown") if param else "unknown"
+                                res_id = new_live[argnode.id]
+                                if effect in ("releases", "escapes"):
+                                    for v in [v for v, r in list(new_live.items()) if r == res_id]:
+                                        del new_live[v]
+                                elif effect == "leaks":
+                                    other_holders = [v for v, r in new_live.items() if r == res_id and v != argnode.id]
+                                    if not other_holders:
+                                        orig_var, acq_n, rel_n = new_res.get(res_id, (argnode.id, "?", "close"))
+                                        if res_id not in found_leaks:
+                                            col = stmt.col_offset if hasattr(stmt, "col_offset") else 0
+                                            lk = Leak(
+                                                file=file_path, func=func_name, line=stmt.lineno, col=col,
+                                                var=orig_var, acquire=acq_n, release=rel_n,
+                                                message=(
+                                                    f"Resource '{orig_var}' acquired at line {res_id} leaked: "
+                                                    f"passed to '{cname}()' at line {stmt.lineno}, which never "
+                                                    f"closes its parameter on some path inside it"
+                                                ),
+                                                acquire_line=res_id,
+                                            )
+                                            found_leaks[res_id] = _finalize(lk, res_id, f"leaked inside callee '{cname}()'")
+                                            path_evidence.setdefault(res_id, {"leaking": [], "safe": []})
+                                        path_evidence[res_id]["leaking"].append(list(path) + [block.id])
+                                        local_leaks.append(res_id)
+                                        for v in [v for v, r in list(new_live.items()) if r == res_id]:
+                                            del new_live[v]
+                                else:
+                                    _flags(res_id)["escaped_unknown"] = True
+                                    _flags(res_id).setdefault("unknown_callees", set()).add(cname)
+                    else:
+                        # External library API call site
+                        has_live_arg = any(isinstance(a, ast.Name) and a.id in new_live for a in call_node.args)
+                        if has_live_arg:
+                            for argnode in call_node.args:
+                                if isinstance(argnode, ast.Name) and argnode.id in new_live:
+                                    res_id = new_live[argnode.id]
+                                    orig_v, acq_n, _ = new_res.get(res_id, (argnode.id, "FILE", "close"))
+                                    spec = next((r for r in resources if r.matches_acquire(acq_n)), None)
+                                    res_type = _spec_type(spec).upper() if spec else "FILE"
+
+                                    contract = api_resolver.resolve_call(resolved_cname, resource_type=res_type)
+
+                                    if contract.behavior in ("CLOSES_INPUT", "TRANSFERS_OWNERSHIP") or contract.ownership in ("CONSUME", "TRANSFER"):
+                                        if hasattr(stmt, "lineno"):
+                                            _flags(res_id)["cleanups"].append(stmt.lineno)
+                                        for v in [v for v, r in list(new_live.items()) if r == res_id]:
+                                            del new_live[v]
+                                    elif contract.behavior == "PRESERVES_INPUT" or contract.ownership == "BORROW":
+                                        pass
+                                    else:
+                                        _flags(res_id)["escaped_unknown"] = True
+                                        _flags(res_id).setdefault("unknown_callees", set()).add(resolved_cname)
 
         return new_live, new_res, local_leaks
 
@@ -732,12 +787,67 @@ def analyze_function_cfg(fcfg, func_name: str, file_path: str, config: CodeGateC
     return list(by_line.values())
 
 
+def sync_kb_and_resolve_unknowns(tree: ast.AST, config: CodeGateConfig, import_map: dict[str, str]) -> KnowledgeBase:
+    """Sync KnowledgeBase resources and api_contracts into config.resources.
+    Also scan AST for unknown external function calls (e.g. pymongo.MongoClient, h5py.File)
+    and query APISemanticsResolver (KB -> LLM fallback -> write to resources.yaml).
+    """
+    kb = KnowledgeBase(kb_path=config.kb_path)
+
+    # 1. Load resources from kb.resources
+    for r_dict in kb.resources:
+        call = r_dict.get("call")
+        if not call:
+            continue
+        rel = r_dict.get("close", ["close"])
+        primary_rel = rel[0] if rel else "close"
+        alt_rel = rel[1:] if len(rel) > 1 else r_dict.get("alt_releases", [])
+        if not any(spec.matches_acquire(call) for spec in config.resources):
+            config.resources.append(ResourceSpec(acquire=call, release=primary_rel, alt_releases=alt_rel))
+
+    # 2. Load API contracts from kb.contracts
+    for contract in kb.contracts:
+        if contract.behavior in ("RETURNS_RESOURCE", "CREATES_RESOURCE") or contract.ownership == "RETURN":
+            call_name = f"{contract.library}.{contract.function}" if contract.library and contract.library != "builtins" else contract.function
+            if not any(spec.matches_acquire(call_name) for spec in config.resources):
+                rel = "aclose" if "async" in call_name.lower() else "close"
+                config.resources.append(ResourceSpec(acquire=call_name, release=rel))
+
+    # 3. Scan AST for unknown external library function calls
+    api_resolver = APISemanticsResolver(kb=kb, min_confidence=config.min_confidence)
+    for node in ast.walk(tree):
+        call_node = None
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and isinstance(node.value, ast.Call):
+            call_node = node.value
+        elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+            call_node = node.value
+
+        if call_node is not None:
+            cname = _call_name(call_node)
+            if cname:
+                resolved_cname = resolve_call_name(cname, import_map)
+                # Only check external dotted library calls not already in config.resources
+                if ("." in resolved_cname or "." in cname) and not any(r.matches_acquire(resolved_cname) or r.matches_acquire(cname) for r in config.resources):
+                    contract = api_resolver.resolve_call(resolved_cname, resource_type="FILE")
+                    if contract and (contract.behavior in ("RETURNS_RESOURCE", "CREATES_RESOURCE") or contract.ownership == "RETURN"):
+                        rel = "aclose" if "async" in resolved_cname.lower() else "close"
+                        if not any(r.matches_acquire(resolved_cname) for r in config.resources):
+                            config.resources.append(ResourceSpec(acquire=resolved_cname, release=rel))
+
+    return kb
+
+
 def analyze_source_with_cfg(source: str, filename: str = "<string>", config: CodeGateConfig | None = None) -> tuple[list[Leak], any]:
     """Analyze Python source string and return (leaks, root_cfg)."""
     if config is None:
         config = CodeGateConfig.default()
+    parsed_ast = ast.parse(source)
     # Build the import map once (aliased/relative imports -> canonical names)
-    import_map = build_import_map(ast.parse(source))
+    import_map = build_import_map(parsed_ast)
+    
+    # Resolve unknown external library APIs via KB / LLM fallback and update resources.yaml
+    sync_kb_and_resolve_unknowns(parsed_ast, config, import_map)
+
     cfg = build_cfg(source, name=filename)
     leaks: list[Leak] = []
 
@@ -747,7 +857,7 @@ def analyze_source_with_cfg(source: str, filename: str = "<string>", config: Cod
     param_effects = compute_param_effects(cfg)
 
     # Lexical context per acquire line (loop/try body) — fixes fixability.
-    lexical_flags = _lexical_resource_flags(ast.parse(source))
+    lexical_flags = _lexical_resource_flags(parsed_ast)
 
     # Analyze each function cfg
     for (block_id, func_name), fcfg in cfg.functioncfgs.items():
@@ -927,18 +1037,24 @@ def _exception_leak_candidates(
     acquire_line: int,
     var: str,
     release_name: str,
-) -> list[tuple[int, str]]:
-    """Return [(call_line, called_name)] where a raise would leak `var`.
+    config: CodeGateConfig | None = None,
+    import_map: dict[str, str] | None = None,
+    api_resolver: APISemanticsResolver | None = None,
+) -> list[tuple[int, str, str]]:
+    """Return [(call_line, called_name, exc_safety)] where a raise would leak `var`.
 
     Per-var safe regions (exception at a line here would still release `var`):
       - try body WITH at least one except handler  (exception caught, control continues)
       - try body whose finally releases `var` via any alias
           (finally runs during unwinding -> resource released)
-    NOT safe (common misconception):
-      - with bodies for OUTER resources: the with's __exit__ only cleans up the
-        with's own context managers; an outer `f` used inside still leaks.
-      - finally bodies themselves (a call inside finally may raise).
     """
+    if config is None:
+        config = CodeGateConfig.default()
+    if import_map is None:
+        import_map = {}
+    if api_resolver is None:
+        api_resolver = APISemanticsResolver(kb=KnowledgeBase(kb_path=config.kb_path), min_confidence=config.min_confidence)
+
     aliases = {var}
     calls: list[ast.Call] = []
     release_lines: list[int] = []
@@ -949,8 +1065,6 @@ def _exception_leak_candidates(
 
     def _releases_var(stmts: list[ast.stmt]) -> bool:
         for s in stmts:
-            # _walk_own(s) yields children of s, so the Expr wrapper is never
-            # yielded — match the Call directly.
             for sub in _walk_own(s):
                 if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Attribute) \
                         and sub.func.attr == release_name \
@@ -966,9 +1080,6 @@ def _exception_leak_candidates(
             if n.body:
                 try_regions.append((n.body[0].lineno, n.body[-1].end_lineno, has_handlers, fin_closes))
         elif isinstance(n, (ast.With, ast.AsyncWith)):
-            # `with contextlib.closing(f):` DOES protect `f`: on unwinding,
-            # closing.__exit__ calls f.close(). Mark (with-entry .. with-exit)
-            # as a safe region for the wrapped var.
             for item in n.items:
                 expr = item.context_expr
                 if isinstance(expr, ast.Call):
@@ -981,15 +1092,13 @@ def _exception_leak_candidates(
                                     try_regions.append(
                                         (n.lineno, n.body[-1].end_lineno, True, False))
         elif isinstance(n, ast.Call):
-            # unknown-call policy (§15/§16): pure builtins cannot realistically
-            # raise — exclude them from may-throw reasoning to avoid noise.
             if isinstance(n.func, ast.Name) and n.func.id in _PURE_BUILTINS:
                 continue
             calls.append(n)
         elif isinstance(n, ast.Assign) and len(n.targets) == 1 \
                 and isinstance(n.targets[0], ast.Name) and isinstance(n.value, ast.Name):
             if n.value.id in aliases:
-                aliases.add(n.targets[0].id)  # g = f  -> g is also a handle
+                aliases.add(n.targets[0].id)
         elif isinstance(n, ast.Expr) and isinstance(n.value, ast.Call) \
                 and isinstance(n.value.func, ast.Attribute) \
                 and n.value.func.attr == release_name \
@@ -1001,7 +1110,27 @@ def _exception_leak_candidates(
                 and isinstance(n.value, ast.Call):
             acquire_call = n.value
 
-    first_release = min(release_lines) if release_lines else None
+    # Check for guaranteed releases/transfers via external API calls
+    guaranteed_release_lines: list[int] = list(release_lines)
+    for c in calls:
+        if c.lineno <= acquire_line:
+            continue
+        cname = _call_name(c)
+        if cname:
+            resolved_cname = resolve_call_name(cname, import_map)
+            spec = next((r for r in config.resources if r.matches_acquire(resolved_cname)), None)
+            if spec and _is_release(ast.Expr(value=c), aliases, spec, release_name):
+                guaranteed_release_lines.append(c.lineno)
+            else:
+                has_var_arg = any(isinstance(a, ast.Name) and a.id in aliases for a in c.args)
+                is_obj_method = isinstance(c.func, ast.Attribute) and isinstance(c.func.value, ast.Name) and c.func.value.id in aliases
+                if has_var_arg or is_obj_method:
+                    contract = api_resolver.resolve_call(resolved_cname, resource_type="FILE")
+                    if contract and (contract.behavior in ("CLOSES_INPUT", "TRANSFERS_OWNERSHIP") or contract.ownership in ("CONSUME", "TRANSFER")):
+                        if contract.exception_safety == "GUARANTEED":
+                            guaranteed_release_lines.append(c.lineno)
+
+    first_release = min(guaranteed_release_lines) if guaranteed_release_lines else None
 
     def is_safe(line: int) -> bool:
         for (s, e, has_handlers, fin_closes) in try_regions:
@@ -1010,23 +1139,52 @@ def _exception_leak_candidates(
                     return True
         return False
 
-    bad: list[tuple[int, str]] = []
+    bad: list[tuple[int, str, str]] = []
+    # Find the resource spec for this acquire so we know alt_releases (used for _is_release checks)
+    _release_spec = next(
+        (r for r in config.resources if r.release == release_name or release_name in r.alt_releases),
+        None,
+    )
+
     for c in calls:
         if c.lineno <= acquire_line:
             continue
         if acquire_call is not None and c is acquire_call:
             continue
-        if first_release is not None and c.lineno >= first_release:
-            continue  # resource released before this call on this order
+
+        # Skip direct release calls on the tracked variable (e.g. f.close() in finally:)
+        if _is_release(ast.Expr(value=c), aliases, _release_spec, release_name):
+            continue
+
         if is_safe(c.lineno):
             continue
-        if isinstance(c.func, ast.Attribute):
-            name = c.func.attr
-        elif isinstance(c.func, ast.Name):
-            name = c.func.id
-        else:
-            name = "<expr>"
-        bad.append((c.lineno, name))
+        if first_release is not None and c.lineno > first_release:
+            continue
+
+        cname = _call_name(c) or (c.func.attr if isinstance(c.func, ast.Attribute) else (c.func.id if isinstance(c.func, ast.Name) else "<expr>"))
+        resolved_cname = resolve_call_name(cname, import_map) if cname else ""
+
+        # Check if c IS a release or transfer call at first_release
+        if first_release is not None and c.lineno == first_release:
+            has_var_arg = any(isinstance(a, ast.Name) and a.id in aliases for a in c.args)
+            is_obj_method = isinstance(c.func, ast.Attribute) and isinstance(c.func.value, ast.Name) and c.func.value.id in aliases
+            if has_var_arg or is_obj_method:
+                contract = api_resolver.resolve_call(resolved_cname, resource_type="FILE") if resolved_cname else None
+                if contract and (contract.behavior in ("CLOSES_INPUT", "TRANSFERS_OWNERSHIP") or contract.ownership in ("CONSUME", "TRANSFER")):
+                    if contract.exception_safety == "GUARANTEED":
+                        continue  # GUARANTEED cleanup/transfer call is NOT a bad call
+                    else:
+                        bad.append((c.lineno, cname, contract.exception_safety))
+                        continue
+
+        contract_safety = "UNKNOWN"
+        if resolved_cname:
+            contract = api_resolver.resolve_call(resolved_cname, resource_type="FILE")
+            if contract:
+                contract_safety = contract.exception_safety
+
+        bad.append((c.lineno, cname, contract_safety))
+
     return bad
 
 
@@ -1036,7 +1194,6 @@ def _find_enclosing_function(tree: ast.Module, line: int) -> ast.FunctionDef | a
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if node.lineno <= line <= (node.end_lineno or node.lineno):
-                # prefer deepest (smallest range)
                 if best is None or (node.end_lineno - node.lineno) < (best.end_lineno - best.lineno):
                     best = node
     return best
@@ -1046,13 +1203,14 @@ def _exception_leaks_for(
     tree: ast.Module,
     path_leaks: list[Leak],
     file_path: str,
+    config: CodeGateConfig | None = None,
+    import_map: dict[str, str] | None = None,
+    api_resolver: APISemanticsResolver | None = None,
 ) -> list[Leak]:
     """For each normal-path leak (or even safe-path acquire), check exception safety."""
     extra: list[Leak] = []
     seen_acquire: set[tuple[str, int]] = set()
 
-    # Also check acquires that were NOT path-leaks (f=open; f.read(); f.close() is
-    # path-SAFE but exception-UNSAFE). We recompute acquires per enclosing function.
     for lk in path_leaks:
         key = (lk.func, lk.acquire_line)
         if key in seen_acquire:
@@ -1061,22 +1219,25 @@ def _exception_leaks_for(
         func = _find_enclosing_function(tree, lk.acquire_line)
         if func is None:
             continue
-        bad_calls = _exception_leak_candidates(func, lk.acquire_line, lk.var, lk.release)
+        bad_calls = _exception_leak_candidates(func, lk.acquire_line, lk.var, lk.release, config, import_map, api_resolver)
         if bad_calls:
-            first_line, first_name = bad_calls[0]
-            lk.exception_note = (
-                f"Exception risk: if '{first_name}()' (line {first_line}) raises, "
-                f"'{lk.var}' leaks too — nothing catches the error before close."
-            )
+            first_line, first_name, exc_safety = bad_calls[0]
+            if exc_safety == "NOT_GUARANTEED":
+                lk.exception_note = (
+                    f"Exception risk: '{first_name}()' (line {first_line}) closes/transfers ownership on normal path, "
+                    f"but its exception-safety contract is NOT_GUARANTEED. If the call raises, '{lk.var}' may leak."
+                )
+            else:
+                lk.exception_note = (
+                    f"Exception risk: if '{first_name}()' (line {first_line}) raises, "
+                    f"'{lk.var}' leaks — normal paths close it, errors don't."
+                )
             lk.kind = "path+exception"
     return extra
 
 
 def _non_raising_functions(tree: ast.AST) -> set[str]:
-    """Local functions whose bodies provably cannot raise (no calls at all,
-    transitively). Used by the exception pass for a consistent unknown-call
-    policy: calling a function that cannot raise cannot leak by raising.
-    """
+    """Local functions whose bodies provably cannot raise."""
     has_call: set[str] = set()
     bodies: dict[str, list[ast.stmt]] = {}
     for node in ast.walk(tree):
@@ -1086,7 +1247,6 @@ def _non_raising_functions(tree: ast.AST) -> set[str]:
                 if isinstance(n, ast.Call):
                     has_call.add(node.name)
                     break
-    # propagate: caller depends on callees
     changed = True
     while changed:
         changed = False
@@ -1106,24 +1266,22 @@ def analyze_exception_safety(
     path_leaks: list[Leak],
     config: CodeGateConfig,
 ) -> list[Leak]:
-    """Standalone exception-safety pass.
-
-    In addition to annotating existing path-leaks, it catches acquires that are
-    path-safe but exception-unsafe (the classic no-finally pattern).
-    Returns NEW exception-only leaks not already covered by a path leak.
-    """
+    """Standalone exception-safety pass."""
     try:
         tree = ast.parse(source)
     except SyntaxError:
         return []
     import_map = build_import_map(tree)
+    api_resolver = APISemanticsResolver(
+        kb=KnowledgeBase(kb_path=config.kb_path),
+        min_confidence=config.min_confidence,
+    )
 
-    # Collect all acquires per function from the desugared-free original AST
     new_leaks: list[Leak] = []
     annotated: set[tuple[str, int]] = set()
 
     # 1) Annotate existing path leaks
-    _exception_leaks_for(tree, path_leaks, path_leaks[0].file if path_leaks else "<string>")
+    _exception_leaks_for(tree, path_leaks, path_leaks[0].file if path_leaks else "<string>", config, import_map, api_resolver)
     for lk in path_leaks:
         annotated.add((lk.var, lk.acquire_line))
 
@@ -1138,12 +1296,22 @@ def analyze_exception_safety(
             var, acq_name, rel_name = acq
             key = (var, n.lineno)
             if key in annotated:
-                continue  # already reported (path leak or annotated above)
+                continue
             annotated.add(key)
-            bad_calls = _exception_leak_candidates(node, n.lineno, var, rel_name)
+            bad_calls = _exception_leak_candidates(node, n.lineno, var, rel_name, config, import_map, api_resolver)
             if bad_calls:
-                first_line, first_name = bad_calls[0]
+                first_line, first_name, exc_safety = bad_calls[0]
                 spec = next((r for r in config.resources if r.matches_acquire(acq_name)), None)
+                if exc_safety == "NOT_GUARANTEED":
+                    note = (
+                        f"Exception risk: '{first_name}()' (line {first_line}) closes/transfers ownership on normal path, "
+                        f"but its exception-safety contract is NOT_GUARANTEED. If the call raises, '{var}' may leak."
+                    )
+                else:
+                    note = (
+                        f"Exception risk: if '{first_name}()' (line {first_line}) raises, "
+                        f"'{var}' leaks — normal paths close it, errors don't."
+                    )
                 new_leaks.append(Leak(
                     file=path_leaks[0].file if path_leaks else "<string>",
                     func=node.name,
@@ -1159,17 +1327,12 @@ def analyze_exception_safety(
                     ),
                     acquire_line=n.lineno,
                     kind="exception",
-                    # Exceptional leaks follow the documented unknown-call policy:
-                    # unknown external calls may raise -> the exceptional path exists.
                     severity="error",
                     confidence="definite",
                     resource_type=_spec_type(spec) if spec else "file",
-                    fixability="unknown",  # try/finally insertion not auto-applied
+                    fixability="unknown",
                     leak_reasons=["exception escape"],
-                    exception_note=(
-                        f"Exception risk: if '{first_name}()' (line {first_line}) raises, "
-                        f"'{var}' leaks — normal paths close it, errors don't."
-                    ),
+                    exception_note=note,
                 ))
     return new_leaks
 
