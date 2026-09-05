@@ -2,7 +2,7 @@
 
 > **Hackathon MVP — 30h build on Scalpel + LibCST**
 
-CodeGate answers: *“After a resource is acquired, is cleanup guaranteed on every reachable path while it remains locally owned?”*
+CodeGate answers: *"After a resource is acquired, is cleanup guaranteed on every reachable path while it remains locally owned?"*
 
 ```python
 def read_file(path):
@@ -83,9 +83,10 @@ python tests/test_analyzer.py
 
 ---
 
-## 🚀 Ready-to-Use GitHub Action Workflow
+## 🚀 GitHub Action — Full Workflow (Copy-Paste Ready)
 
-To use LeakGuard in **any Python repository on GitHub**, create `.github/workflows/leakguard.yml` and copy-paste the full workflow below:
+> ⚠️ **Important:** The GitHub Marketplace shows only the **step snippet** (starting with `- name:`).  
+> You need the **complete workflow file** below. Create `.github/workflows/leakguard.yml` in your repo and paste this entire file:
 
 ```yaml
 name: LeakGuard Security Audit
@@ -100,24 +101,58 @@ jobs:
   leakguard-scan:
     name: CodeGate Resource Leak Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
       - name: LeakGuard CodeGate Analyzer
-        uses: vanshpatil16/VH26-DOMINATORS-5.0@v1.0.0
+        uses: vanshpatil16/VH26-DOMINATORS-5.0@v1.0.1
         with:
-          license-key: ${{ secrets.LEAKGUARD_LICENSE_KEY }}
+          targets: .
           ensemble: 'true'
+          changed-only: 'false'
 ```
 
-> **Note on GitHub Marketplace Snippet:** GitHub Marketplace automatically generates a single-step snippet (`- name:`). If creating a *new* file in `.github/workflows/`, use the complete `name / on / jobs / steps` YAML above!
+### Optional: Scan only changed files on PRs
+
+```yaml
+name: LeakGuard Security Audit
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  leakguard-scan:
+    name: CodeGate Resource Leak Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: LeakGuard CodeGate Analyzer
+        uses: vanshpatil16/VH26-DOMINATORS-5.0@v1.0.1
+        with:
+          changed-only: 'true'
+          base: origin/main
+          ensemble: 'true'
+```
 
 ### Action Inputs
 | Input | Description | Default |
 | :--- | :--- | :--- |
-| `license-key` | LeakGuard License Key (Community, Team, Business, Enterprise) | `community` |
 | `targets` | Files or directories to scan | `.` |
 | `ensemble` | Include ruff + CodeGate ensemble verification | `true` |
 | `changed-only` | Scan only changed files against base ref | `false` |
+| `base` | Git ref to diff against (used when `changed-only: true`) | `origin/main` |
+| `license-key` | LeakGuard License Key (Community, Team, Business, Enterprise) | `community` |
