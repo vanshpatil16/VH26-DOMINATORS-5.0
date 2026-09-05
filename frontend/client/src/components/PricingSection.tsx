@@ -1,9 +1,9 @@
 /**
- * CodeGate — Interactive Pricing Section & Subscription Plans
- * Displays Community (Free), Team ($49/mo), Business ($199/mo), and Enterprise ($10K+/yr) tiers.
+ * CodeGate — Interactive Pricing Section & Complete Financial Comparison
+ * Converts USD pricing matrix into Indian Rupees (INR ₹) with detailed contribution margins.
  */
 import { useState } from "react";
-import { Check, Zap, Building2, Users, Crown, ArrowRight, Sparkles } from "lucide-react";
+import { Check, Zap, Building2, Users, Rocket, ArrowRight, Sparkles, Table } from "lucide-react";
 
 interface PlanTier {
   id: string;
@@ -33,8 +33,8 @@ export default function PricingSection({ onSelectPlan }: { onSelectPlan?: (planI
       id: "community",
       name: "Community",
       badge: "FREE FOREVER",
-      priceMonthly: "$0",
-      priceAnnual: "$0",
+      priceMonthly: "₹0",
+      priceAnnual: "₹0",
       periodLabel: "forever",
       bestFor: "Students, OSS & individual devs",
       description: "Core static analysis for independent developers and open-source projects.",
@@ -56,29 +56,53 @@ export default function PricingSection({ onSelectPlan }: { onSelectPlan?: (planI
       ctaClass: "bg-[#161922] text-white hover:bg-[#202432] border border-[#2b3042]",
     },
     {
+      id: "pro",
+      name: "Pro",
+      badge: "FOR INDIVIDUAL PROS",
+      priceMonthly: "₹849",
+      priceAnnual: "₹699",
+      periodLabel: annual ? "billed ₹8,388/yr" : "per month",
+      bestFor: "Freelancers & pro developers",
+      description: "Enhanced scanning bandwidth with deep CFG resolution and unlimited private repos.",
+      accentColor: "#ec4899",
+      badgeBg: "bg-pink-500/15",
+      badgeBorder: "border-pink-500/40",
+      badgeText: "text-pink-400",
+      icon: <Rocket className="w-5 h-5 text-pink-400" />,
+      features: [
+        "Everything in Community",
+        "Up to 3 private repos",
+        "Priority analysis pipeline",
+        "Deep cross-procedural CFG",
+        "LLM-assisted fix explanation",
+        "Standard email support",
+      ],
+      ctaLabel: "Start Pro Plan",
+      ctaClass: "bg-pink-600 text-white hover:bg-pink-500 shadow-lg shadow-pink-600/30 font-semibold",
+    },
+    {
       id: "team",
       name: "Team",
       badge: "MOST POPULAR",
       popular: true,
-      priceMonthly: "$49",
-      priceAnnual: "$41",
-      periodLabel: annual ? "billed $490/yr" : "per month",
+      priceMonthly: "₹4,199",
+      priceAnnual: "₹3,499",
+      periodLabel: annual ? "billed ₹41,988/yr" : "per month",
       bestFor: "Small engineering teams",
-      description: "Everything in Community plus team telemetry, PR checks, and user dashboard.",
+      description: "Everything in Pro plus team telemetry, PR checks, and user dashboard.",
       accentColor: "#007aff",
       badgeBg: "bg-[#007aff]/15",
       badgeBorder: "border-[#007aff]/40",
       badgeText: "text-[#007aff]",
       icon: <Users className="w-5 h-5 text-[#007aff]" />,
       features: [
-        "Everything in Community",
+        "Everything in Pro",
         "Developer user panel",
         "Up to 10 private repos",
         "Team analytics dashboard",
         "Automated GitHub PR checks",
         "Scan history & telemetry",
         "Slack & Teams notifications",
-        "Email support",
       ],
       ctaLabel: "Start 14-Day Trial",
       ctaClass: "bg-[#007aff] text-white hover:bg-[#0066d6] shadow-lg shadow-blue-600/30 font-semibold",
@@ -87,9 +111,9 @@ export default function PricingSection({ onSelectPlan }: { onSelectPlan?: (planI
       id: "business",
       name: "Business",
       badge: "FOR GROWING TEAMS",
-      priceMonthly: "$199",
-      priceAnnual: "$165",
-      periodLabel: annual ? "billed $1,990/yr" : "per month",
+      priceMonthly: "₹12,699",
+      priceAnnual: "₹10,499",
+      periodLabel: annual ? "billed ₹1,25,988/yr" : "per month",
       bestFor: "Growing tech companies",
       description: "Admin organization portal, RBAC permissions, and centralized policy rules.",
       accentColor: "#a855f7",
@@ -104,38 +128,49 @@ export default function PricingSection({ onSelectPlan }: { onSelectPlan?: (planI
         "Role-Based Access (RBAC)",
         "Organization policy engine",
         "Centralized key management",
-        "Advanced leak analytics",
         "Priority email & chat SLA",
       ],
       ctaLabel: "Upgrade to Business",
       ctaClass: "bg-purple-600 text-white hover:bg-purple-500 shadow-lg shadow-purple-600/30 font-semibold",
     },
+  ];
+
+  const FINANCIAL_COMPARISON = [
     {
-      id: "enterprise",
-      name: "Enterprise",
-      badge: "CUSTOM SECURITY",
-      priceMonthly: "Custom",
-      priceAnnual: "Custom",
-      periodLabel: "starting ~$10K/year",
-      bestFor: "Large organizations & regulated enterprise",
-      description: "Self-hosted deployments, SAML/SSO, compliance reports, and 24/7 SLA.",
-      accentColor: "#ef4444",
-      badgeBg: "bg-red-500/15",
-      badgeBorder: "border-red-500/40",
-      badgeText: "text-red-400",
-      icon: <Crown className="w-5 h-5 text-red-400" />,
-      features: [
-        "Everything in Business",
-        "Unlimited repositories",
-        "Single Sign-On (SSO / SAML)",
-        "Audit logs & SOC2 reports",
-        "Self-hosted / Air-gapped",
-        "Multi-language scanner engine",
-        "Custom rule development",
-        "Dedicated Solutions Engineer & 24/7 SLA",
-      ],
-      ctaLabel: "Contact Enterprise Sales",
-      ctaClass: "bg-gradient-to-r from-red-600 to-amber-600 text-white hover:opacity-95 shadow-lg shadow-red-600/30 font-semibold",
+      plan: "Community",
+      icon: "🟦",
+      price: "₹0",
+      estCost: "~₹42",
+      contribution: "-₹42",
+      margin: "—",
+      badgeClass: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    },
+    {
+      plan: "Pro",
+      icon: "🚀",
+      price: "₹849",
+      estCost: "~₹295",
+      contribution: "~₹554",
+      margin: "~65%",
+      badgeClass: "bg-pink-500/10 text-pink-400 border-pink-500/20",
+    },
+    {
+      plan: "Team",
+      icon: "👥",
+      price: "₹4,199",
+      estCost: "~₹1,645",
+      contribution: "~₹2,554",
+      margin: "~61%",
+      badgeClass: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+    },
+    {
+      plan: "Business",
+      icon: "🏢",
+      price: "₹12,699",
+      estCost: "~₹5,080",
+      contribution: "~₹7,619",
+      margin: "~60%",
+      badgeClass: "bg-purple-500/10 text-purple-400 border-purple-500/20",
     },
   ];
 
@@ -145,7 +180,7 @@ export default function PricingSection({ onSelectPlan }: { onSelectPlan?: (planI
       <div className="max-w-[1200px] mx-auto text-center space-y-3 mb-10">
         <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs font-mono font-medium">
           <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Transparent Developer Tiers</span>
+          <span>Transparent Developer Tiers (INR ₹)</span>
         </div>
 
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white">
@@ -153,7 +188,7 @@ export default function PricingSection({ onSelectPlan }: { onSelectPlan?: (planI
         </h2>
 
         <p className="text-xs sm:text-sm text-zinc-400 max-w-xl mx-auto leading-relaxed">
-          From individual open-source developers to large enterprise security leads. Catch leaks early and automate code fixes.
+          From individual open-source developers to growing engineering teams. Catch leaks early and automate code fixes.
         </p>
 
         {/* Monthly / Annual Toggle */}
@@ -182,7 +217,7 @@ export default function PricingSection({ onSelectPlan }: { onSelectPlan?: (planI
       </div>
 
       {/* 4 Cards Grid */}
-      <div className="max-w-[1280px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
+      <div className="max-w-[1280px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch mb-16">
         {PLANS.map((plan) => (
           <div
             key={plan.id}
@@ -214,7 +249,7 @@ export default function PricingSection({ onSelectPlan }: { onSelectPlan?: (planI
                   <span className="text-2xl font-bold text-white font-mono tracking-tight">
                     {annual ? plan.priceAnnual : plan.priceMonthly}
                   </span>
-                  {plan.priceMonthly !== "Custom" && (
+                  {plan.priceMonthly !== "₹0" && (
                     <span className="text-xs text-zinc-400">/dev/month</span>
                   )}
                 </div>
@@ -249,6 +284,53 @@ export default function PricingSection({ onSelectPlan }: { onSelectPlan?: (planI
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Complete Financial Comparison Table */}
+      <div className="max-w-[1000px] mx-auto rounded-xl bg-[#0d0f14] border border-white/[0.08] p-6 shadow-xl">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/25 text-indigo-400">
+            <Table className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <span>📊 Complete Comparison</span>
+            </h3>
+            <p className="text-xs text-zinc-400">Financial margin & estimated direct infrastructure costs (converted to INR ₹)</p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs font-mono">
+            <thead>
+              <tr className="border-b border-white/[0.08] text-zinc-400 uppercase text-[10px]">
+                <th className="py-3 px-4 font-semibold">Plan</th>
+                <th className="py-3 px-4 font-semibold">Price</th>
+                <th className="py-3 px-4 font-semibold">Estimated Direct Cost</th>
+                <th className="py-3 px-4 font-semibold">Contribution</th>
+                <th className="py-3 px-4 font-semibold text-right">Contribution Margin</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.05] text-zinc-200">
+              {FINANCIAL_COMPARISON.map((row) => (
+                <tr key={row.plan} className="hover:bg-white/[0.02] transition-colors">
+                  <td className="py-3.5 px-4 font-bold text-white flex items-center gap-2">
+                    <span className="text-sm">{row.icon}</span>
+                    <span>{row.plan}</span>
+                  </td>
+                  <td className="py-3.5 px-4 font-semibold">{row.price}</td>
+                  <td className="py-3.5 px-4 text-zinc-400">{row.estCost}</td>
+                  <td className={`py-3.5 px-4 font-semibold ${row.contribution.startsWith("-") ? "text-rose-400" : "text-emerald-400"}`}>
+                    {row.contribution}
+                  </td>
+                  <td className="py-3.5 px-4 font-bold text-indigo-400 text-right">
+                    {row.margin}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   );
