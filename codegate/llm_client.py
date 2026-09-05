@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-import httpx
+# Note: httpx is imported lazily inside ask() method
 
 
 def get_api_config() -> dict[str, str]:
@@ -62,6 +62,11 @@ class BenchLLM:
         total_tokens}} or None on failure."""
         if not self.key:
             return None
+        try:
+            import httpx
+        except ImportError:
+            return None
+
         messages = []
         if system:
             messages.append({"role": "system", "content": system})

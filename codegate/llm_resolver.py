@@ -14,7 +14,7 @@ from pathlib import Path
 import re
 from typing import Any, Optional
 
-import httpx
+# Note: httpx is imported lazily inside _query_llm to prevent ModuleNotFoundError on import
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +146,12 @@ Respond ONLY with a single valid JSON object containing NO extra commentary or m
             return None
 
     def _query_llm(self, prompt: str) -> Optional[str]:
+        try:
+            import httpx
+        except ImportError:
+            logger.warning("httpx module is not installed. LLM resolution disabled.")
+            return None
+
         load_env_file()
         timeout = float(os.environ.get("LLM_TIMEOUT", "30.0"))
 
